@@ -1,0 +1,15 @@
+{
+  "name": "teckwah-dashboard-prototype",
+  "version": "1.0.0",
+  "description": "Teckwah Dashboard Prototype",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server -a 127.0.0.1 -p 8080 -c-1",
+    "build": "echo \"No build step required for this prototype. Use 'npm start' to run the server.\""
+  },
+  "dependencies": {
+    "antd": "^5.11.0",
+    "dayjs": "^1.11.10",
+    "http-server": "^14.1.1"
+  }
+}

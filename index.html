@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TeckwahTMS</title>
+
+    <!-- 파비콘 -->
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon" />
+
+    <!-- Ant Design CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/antd@5.11.0/dist/reset.css"
+    />
+
+    <!-- 사용자 정의 CSS -->
+    <link rel="stylesheet" href="styles/additional.css" />
+
+    <!-- 폰트 어썸 -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+    <style>
+      /* 대시보드 페이지 추가 스타일 */
+      .search-input {
+        padding: 8px 12px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        width: 100%;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+      }
+
+      .search-button {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        cursor: pointer;
+        margin-left: 8px;
+      }
+
+      .search-container {
+        display: flex;
+        align-items: center;
+      }
+
+      .date-filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .date-period-container {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .date-range-label {
+        margin-right: 10px;
+        font-size: 0.9rem;
+        color: #666;
+        font-weight: 500;
+      }
+
+      .date-input-group {
+        display: flex;
+        align-items: center;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        overflow: hidden;
+        background-color: white;
+      }
+
+      .date-input {
+        border: none;
+        padding: 8px 12px;
+        outline: none;
+        font-size: 0.9rem;
+      }
+
+      .date-separator {
+        color: #666;
+        padding: 0 5px;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .bg-yellow {
+        background-color: #fffbe6;
+        color: #ad8b00;
+      }
+      .bg-blue {
+        background-color: #e6f7ff;
+        color: #1890ff;
+      }
+      .bg-blue-dark {
+        background-color: #096dd9;
+        color: white;
+      }
+      .bg-green {
+        background-color: #f6ffed;
+        color: #52c41a;
+      }
+      .bg-red {
+        background-color: #fff1f0;
+        color: #f5222d;
+      }
+      .bg-gray {
+        background-color: #f5f5f5;
+        color: #595959;
+      }
+
+      /* 상세 모달 스타일 */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        width: 80%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+      }
+
+      .modal-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-body {
+        padding: 24px;
+      }
+
+      .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .close-modal {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: #999;
+      }
+
+      .order-detail-section {
+        margin-bottom: 20px;
+      }
+
+      .section-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f0f0f0;
+        color: #333;
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px 24px;
+      }
+
+      .detail-item {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .detail-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 4px;
+      }
+
+      .detail-value {
+        font-size: 0.95rem;
+      }
+
+      /* 상태 변경 모달 */
+      .status-change-modal .modal-content {
+        max-width: 400px;
+      }
+
+      /* 메시지 팝업 */
+      .message-popup {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        padding: 12px 24px;
+        z-index: 1000;
+        display: none;
+        min-width: 300px;
+      }
+
+      .message-popup.active {
+        display: block;
+        animation: fadeInUp 0.3s ease-out forwards;
+      }
+
+      .message-popup.message-success {
+        border-left: 4px solid #52c41a;
+      }
+
+      .message-popup.message-error {
+        border-left: 4px solid #f5222d;
+      }
+
+      .message-popup.message-warning {
+        border-left: 4px solid #faad14;
+      }
+
+      .message-popup.message-info {
+        border-left: 4px solid #1890ff;
+      }
+
+      .message-content {
+        display: flex;
+        align-items: center;
+      }
+
+      .message-icon {
+        margin-right: 12px;
+        font-size: 1.2rem;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translate(-50%, 20px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+      }
+
+      /* 로딩 표시 */
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 50;
+        font-size: 1.2rem;
+        color: #1890ff;
+      }
+
+      .loading-spinner {
+        margin-right: 10px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <!-- 레이아웃 -->
+      <div class="main-layout">
+        <!-- 사이드바 -->
+        <aside id="sidebar" class="sidebar">
+          <img
+            class="logo"
+            src="assets/logo.png"
+            alt="로고"
+            style="
+              width: 100%;
+              max-width: 200px;
+              margin: 15px auto;
+              display: block;
+            "
+          />
+          <div class="logo-container" style="align-content: center">
+            <h1>TWLKR-TMS</h1>
+          </div>
+
+          <div class="user-info">
+            <div class="avatar">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div class="user-details">
+              <p class="user-name" id="userDisplayName">CSAdmin</p>
+              <p class="user-role" id="userDisplayRole">CS</p>
+            </div>
+          </div>
+
+          <nav class="menu">
+            <ul>
+              <li class="menu-item active">
+                <a href="index.html">
+                  <i class="fa-solid fa-chart-line"></i>
+                  <span>TMS</span>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="handover.html">
+                  <i class="fa-solid fa-right-left"></i>
+                  <span>Work-Notice</span>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="visualization.html">
+                  <i class="fa-solid fa-chart-bar"></i>
+                  <span>Visualization</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div class="logout-container">
+            <button id="logoutBtn" class="logout-btn">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>로그아웃</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- 메인 컨텐츠 -->
+        <main class="main-content">
+          <!-- 컨텐츠 영역 -->
+          <div id="content-container" class="content-container">
+            <!-- 대시보드 페이지 -->
+            <div class="page-section" id="dashboardPage">
+              <div class="main-card" style="position: relative">
+                <div class="card-header date-filter-header">
+                  <div class="date-period-container">
+                    <div
+                      class="period-select-container"
+                      style="display: flex; align-items: center"
+                    >
+                      <!-- 개선된 날짜 필터 디자인 -->
+                      <span class="date-range-label">ETA 기간:</span>
+                      <div class="date-input-group">
+                        <input
+                          type="date"
+                          id="quickStartDate"
+                          class="date-input"
+                        />
+                        <span class="date-separator">~</span>
+                        <input
+                          type="date"
+                          id="quickEndDate"
+                          class="date-input"
+                        />
+                      </div>
+                      <button
+                        class="btn primary-btn"
+                        id="quickDateBtn"
+                        style="margin-left: 10px"
+                      >
+                        <i class="fa-solid fa-search"></i> 조회
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="search-container" style="max-width: 300px">
+                    <input
+                      type="text"
+                      id="searchKeyword"
+                      class="search-input"
+                      placeholder="주문번호"
+                    />
+                    <button class="search-button" id="searchBtn">
+                      <i class="fa-solid fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 통합 검색 및 필터 영역 -->
+                <div class="control-panel">
+                  <!-- 필터 영역 -->
+                  <div class="filter-section">
+                    <div class="filter-container">
+                      <div class="filter-item">
+                        <label for="statusFilter">상태</label>
+                        <select id="statusFilter" class="filter-select">
+                          <option value="">전체</option>
+                          <option value="PENDING">대기</option>
+                          <option value="IN_PROGRESS">진행</option>
+                          <option value="COMPLETE">완료</option>
+                          <option value="ISSUE">이슈</option>
+                          <option value="CANCEL">취소</option>
+                        </select>
+                      </div>
+
+                      <div class="filter-item">
+                        <label for="departmentFilter">부서</label>
+                        <select id="departmentFilter" class="filter-select">
+                          <option value="">전체</option>
+                          <option value="CS">CS</option>
+                          <option value="HES">HES</option>
+                          <option value="LENOVO">LENOVO</option>
+                        </select>
+                      </div>
+
+                      <div class="filter-item">
+                        <label for="warehouseFilter">창고</label>
+                        <select id="warehouseFilter" class="filter-select">
+                          <option value="">전체</option>
+                          <option value="SEOUL">서울</option>
+                          <option value="BUSAN">부산</option>
+                          <option value="GWANGJU">광주</option>
+                          <option value="DAEJEON">대전</option>
+                        </select>
+                      </div>
+
+                      <div class="filter-actions">
+                        <button class="btn primary-btn" id="applyFilterBtn">
+                          <i class="fa-solid fa-filter"></i> 필터 적용
+                        </button>
+                        <button class="btn secondary-btn" id="resetBtn">
+                          <i class="fa-solid fa-rotate-left"></i> 초기화
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 요약 카드 영역 - 필터링 아래로 이동 -->
+                <div class="summary-cards">
+                  <div class="summary-card">
+                    <div
+                      class="summary-icon"
+                      style="
+                        background-color: #f9f0ff;
+                        color: var(--type-delivery);
+                      "
+                    >
+                      <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="summary-data">
+                      <p class="summary-label">배송 건수</p>
+                      <h3 class="summary-value" id="totalOrders">0건</h3>
+                    </div>
+                  </div>
+
+                  <div class="summary-card">
+                    <div
+                      class="summary-icon"
+                      style="
+                        background-color: #fff7e6;
+                        color: var(--type-pickup);
+                      "
+                    >
+                      <i class="fa-solid fa-truck-fast"></i>
+                    </div>
+                    <div class="summary-data">
+                      <p class="summary-label">회수 건수</p>
+                      <h3 class="summary-value" id="inProgressOrders">0건</h3>
+                    </div>
+                  </div>
+
+                  <div class="summary-card">
+                    <div
+                      class="summary-icon"
+                      style="
+                        background-color: #fffbe6;
+                        color: var(--status-progress);
+                      "
+                    >
+                      <i class="fa-solid fa-spinner"></i>
+                    </div>
+                    <div class="summary-data">
+                      <p class="summary-label">진행 (배송+회수)</p>
+                      <h3 class="summary-value" id="progressOrders">0건</h3>
+                    </div>
+                  </div>
+
+                  <div class="summary-card">
+                    <div
+                      class="summary-icon"
+                      style="
+                        background-color: #f6ffed;
+                        color: var(--status-complete);
+                      "
+                    >
+                      <i class="fa-solid fa-check-circle"></i>
+                    </div>
+                    <div class="summary-data">
+                      <p class="summary-label">완료 (배송+회수)</p>
+                      <h3 class="summary-value" id="completedOrders">0건</h3>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 카드 액션 버튼 - summary-card 아래로 이동 -->
+                <div
+                  class="card-actions"
+                  style="
+                    margin: 0 20px 20px;
+                    display: flex;
+                    justify-content: flex-end;
+                  "
+                >
+                  <button class="btn primary-btn" id="refreshBtn">
+                    <i class="fa-solid fa-arrows-rotate"></i> 새로고침
+                  </button>
+                  <button class="btn primary-btn" id="changeStatusBtn">
+                    <i class="fa-solid fa-exchange-alt"></i> 상태 변경
+                  </button>
+                  <button class="btn primary-btn" id="assignBtn">
+                    <i class="fa-solid fa-truck"></i> 배차 처리
+                  </button>
+                  <button class="btn primary-btn" id="newOrderBtn">
+                    <i class="fa-solid fa-plus"></i> 신규 등록
+                  </button>
+                  <button class="btn danger-btn" id="deleteOrderBtn">
+                    <i class="fa-solid fa-trash"></i> 삭제
+                  </button>
+                </div>
+
+                <!-- 데이터 테이블 -->
+                <div
+                  class="table-container"
+                  style="
+                    max-height: 500px;
+                    overflow-y: auto;
+                    position: relative;
+                  "
+                >
+                  <table class="data-table" id="dashboardTable">
+                    <thead>
+                      <tr>
+                        <th class="checkbox-cell">
+                          <input type="checkbox" id="selectAll" />
+                        </th>
+                        <th>주문번호</th>
+                        <th>고객</th>
+                        <th>유형</th>
+                        <th>상태</th>
+                        <th>부서</th>
+                        <th>창고</th>
+                        <th>ETA</th>
+                        <th>배송기사</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboardTableBody">
+                      <tr>
+                        <td colspan="10" class="empty-table">
+                          데이터를 불러오는 중...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- 페이지네이션 -->
+                <div class="pagination" id="pagination">
+                  <button class="page-btn" data-page="prev">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <span class="page-info" id="pageInfo">1 / 1</span>
+                  <button class="page-btn" data-page="next">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+
+                  <div class="page-size">
+                    <span>표시 행 수:</span>
+                    <select id="pageSize" class="select-field">
+                      <option value="5">5행</option>
+                      <option value="10" selected>10행</option>
+                      <option value="15">15행</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 로딩 오버레이 -->
+                <div
+                  id="loadingOverlay"
+                  class="loading-overlay"
+                  style="display: none"
+                >
+                  <i class="fa-solid fa-spinner loading-spinner"></i>
+                  <span>데이터를 불러오는 중...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- 모달: 신규 배송 등록 -->
+    <div id="newOrderModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>신규 배송 등록</h3>
+          <button class="close-modal" data-modal="newOrderModal">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form class="new-order-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newOrderNo"
+                  >주문번호 <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="newOrderNo"
+                  class="input-field"
+                  placeholder="주문번호를 입력하세요"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="newType"
+                  >유형 <span class="required">*</span></label
+                >
+                <select id="newType" class="select-field" required>
+                  <option value="DELIVERY">배송</option>
+                  <option value="RETURN">회수</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newDepartment"
+                  >부서 <span class="required">*</span></label
+                >
+                <select id="newDepartment" class="select-field" required>
+                  <option value="CS">CS</option>
+                  <option value="HES">HES</option>
+                  <option value="LENOVO">LENOVO</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="newWarehouse"
+                  >창고 <span class="required">*</span></label
+                >
+                <select id="newWarehouse" class="select-field" required>
+                  <option value="SEOUL">서울</option>
+                  <option value="BUSAN">부산</option>
+                  <option value="GWANGJU">광주</option>
+                  <option value="DAEJEON">대전</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newSla">SLA <span class="required">*</span></label>
+                <input
+                  type="text"
+                  id="newSla"
+                  class="input-field"
+                  placeholder="SLA를 입력하세요"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="newEta">ETA <span class="required">*</span></label>
+                <input
+                  type="datetime-local"
+                  id="newEta"
+                  class="input-field"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newPostalCode"
+                  >우편번호 <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="newPostalCode"
+                  class="input-field"
+                  placeholder="우편번호를 입력하세요"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="newCustomer"
+                  >고객명 <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="newCustomer"
+                  class="input-field"
+                  placeholder="고객명을 입력하세요"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="newAddress"
+                >주소 <span class="required">*</span></label
+              >
+              <input
+                type="text"
+                id="newAddress"
+                class="input-field"
+                placeholder="주소를 입력하세요"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newContact">연락처</label>
+                <input
+                  type="text"
+                  id="newContact"
+                  class="input-field"
+                  placeholder="연락처를 입력하세요"
+                />
+              </div>
+              <div class="form-group">
+                <label for="newStatus">상태</label>
+                <select id="newStatus" class="select-field">
+                  <option value="PENDING">대기</option>
+                  <option value="IN_PROGRESS">진행중</option>
+                  <option value="COMPLETE">완료</option>
+                  <option value="ISSUE">이슈</option>
+                  <option value="CANCEL">취소</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="newRemark">메모</label>
+              <textarea
+                id="newRemark"
+                class="text-area"
+                placeholder="필요한 메모를 입력하세요"
+                rows="3"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  border-radius: 4px;
+                  border: 1px solid #d9d9d9;
+                  resize: vertical;
+                  font-size: 0.95rem;
+                  transition: border-color 0.3s;
+                  min-height: 80px;
+                "
+              ></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary-btn" data-modal="newOrderModal">
+            취소
+          </button>
+          <button class="btn primary-btn" id="confirmNewOrderBtn">
+            <i class="fa-solid fa-check"></i> 등록하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달: 상세 정보 -->
+    <div id="orderDetailModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>주문 상세 정보</h3>
+          <button class="close-modal" data-modal="orderDetailModal">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- 기본 정보 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">기본 정보</div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">주문번호</span>
+                <span class="detail-value" id="detailOrderId">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">상태</span>
+                <span class="detail-value" id="detailStatus">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">고객</span>
+                <span class="detail-value" id="detailCustomer">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">유형</span>
+                <span class="detail-value" id="detailType">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">부서</span>
+                <span class="detail-value" id="detailDepartment">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">창고</span>
+                <span class="detail-value" id="detailWarehouse">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">SLA</span>
+                <span class="detail-value" id="detailSla">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">우편번호</span>
+                <span class="detail-value" id="detailPostalCode">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 배송 정보 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">배송 정보</div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">ETA</span>
+                <span class="detail-value" id="detailEta">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">생성 시간</span>
+                <span class="detail-value" id="detailCreateTime">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">출발 시간</span>
+                <span class="detail-value" id="detailDepartTime">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">완료 시간</span>
+                <span class="detail-value" id="detailCompleteTime">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">배송기사 ID</span>
+                <span class="detail-value" id="detailDriver">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">배송기사 연락처</span>
+                <span class="detail-value" id="detailDriverContact">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">배송주소</span>
+                <span class="detail-value" id="detailAddress">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">연락처</span>
+                <span class="detail-value" id="detailContact">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 메모 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">메모</div>
+            <div class="detail-item">
+              <span class="detail-value" id="detailMemo">-</span>
+            </div>
+          </div>
+
+          <!-- 업데이트 정보 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">업데이트 정보</div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">마지막 업데이트 시간</span>
+                <span class="detail-value" id="detailUpdateAt">-</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">업데이트한 사용자</span>
+                <span class="detail-value" id="detailUpdatedBy">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary-btn" data-modal="orderDetailModal">
+            닫기
+          </button>
+          <button class="btn primary-btn" id="editOrderBtn">
+            <i class="fa-solid fa-edit"></i> 수정
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달: 배차 처리 -->
+    <div id="assignDriverModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>배차 처리</h3>
+          <button class="close-modal" data-modal="assignDriverModal">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="driverName">기사 이름</label>
+            <input
+              type="text"
+              id="driverName"
+              class="input-field"
+              placeholder="기사 이름을 입력하세요"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="driverContact">기사 번호</label>
+            <input
+              type="text"
+              id="driverContact"
+              class="input-field"
+              placeholder="기사 연락처를 입력하세요"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary-btn" data-modal="assignDriverModal">
+            취소
+          </button>
+          <button class="btn primary-btn" id="confirmAssignBtn">
+            <i class="fa-solid fa-truck"></i> 배차 확인
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달: 상태 변경 -->
+    <div id="statusChangeModal" class="modal status-change-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>주문 상태 변경</h3>
+          <button class="close-modal" data-modal="statusChangeModal">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 20px">
+            <label for="newStatus" style="display: block; margin-bottom: 8px"
+              >새 상태</label
+            >
+            <select id="newStatus" class="select-field" style="width: 100%">
+              <option value="PENDING">대기</option>
+              <option value="IN_PROGRESS">진행</option>
+              <option value="COMPLETE">완료</option>
+              <option value="ISSUE">이슈</option>
+              <option value="CANCEL">취소</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary-btn" data-modal="statusChangeModal">
+            취소
+          </button>
+          <button class="btn primary-btn" id="confirmStatusChangeBtn">
+            <i class="fa-solid fa-check"></i> 변경 확인
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 메시지 팝업 컴포넌트 -->
+    <div id="messagePopup" class="message-popup">
+      <div class="message-content">
+        <i class="fa-solid message-icon"></i>
+        <span class="message-text"></span>
+      </div>
+    </div>
+
+    <!-- 주문 수정 모달 -->
+    <div id="editOrderModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>주문 정보 수정</h3>
+          <button class="close-modal" data-modal="editOrderModal">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="editOrderForm" class="new-order-form">
+            <input type="hidden" id="editOrderId" name="orderId" />
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editOrderNo">주문번호</label>
+                <input
+                  type="text"
+                  id="editOrderNo"
+                  class="input-field"
+                  name="orderNo"
+                  readonly
+                />
+                <small class="form-text text-muted"
+                  >주문번호는 변경할 수 없습니다.</small
+                >
+              </div>
+              <div class="form-group">
+                <label for="editType">배송 유형</label>
+                <select id="editType" class="select-field" name="type">
+                  <option value="DELIVERY">배송</option>
+                  <option value="PICKUP">회수</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editDepartment">부서</label>
+                <select
+                  id="editDepartment"
+                  class="select-field"
+                  name="department"
+                >
+                  <option value="CS">CS</option>
+                  <option value="HES">HES</option>
+                  <option value="LENOVO">LENOVO</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="editWarehouse">창고</label>
+                <select
+                  id="editWarehouse"
+                  class="select-field"
+                  name="warehouse"
+                >
+                  <option value="SEOUL">서울</option>
+                  <option value="BUSAN">부산</option>
+                  <option value="GWANGJU">광주</option>
+                  <option value="DAEJEON">대전</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editSla">SLA</label>
+                <select id="editSla" class="select-field" name="sla">
+                  <option value="4HR(24X7)">4HR(24X7)</option>
+                  <option value="NEXT-DAY">NEXT-DAY</option>
+                  <option value="STANDARD">STANDARD</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="editEta">ETA</label>
+                <input
+                  type="datetime-local"
+                  id="editEta"
+                  class="input-field"
+                  name="eta"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editPostalCode">우편번호</label>
+                <input
+                  type="text"
+                  id="editPostalCode"
+                  class="input-field"
+                  name="postalCode"
+                />
+              </div>
+              <div class="form-group">
+                <label for="editCustomer">고객명</label>
+                <input
+                  type="text"
+                  id="editCustomer"
+                  class="input-field"
+                  name="customer"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="editAddress">주소</label>
+              <input
+                type="text"
+                id="editAddress"
+                class="input-field"
+                name="address"
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="editContact">연락처</label>
+                <input
+                  type="text"
+                  id="editContact"
+                  class="input-field"
+                  name="contact"
+                />
+              </div>
+              <div class="form-group">
+                <label for="editStatus">현재 상태</label>
+                <select id="editStatus" class="select-field" name="status">
+                  <option value="PENDING">대기</option>
+                  <option value="IN_PROGRESS">진행중</option>
+                  <option value="COMPLETE">완료</option>
+                  <option value="ISSUE">이슈</option>
+                  <option value="CANCEL">취소</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="editRemark">메모</label>
+              <textarea
+                id="editRemark"
+                class="text-area"
+                name="remark"
+                rows="3"
+                style="
+                  width: 100%;
+                  padding: 10px;
+                  border-radius: 4px;
+                  border: 1px solid #d9d9d9;
+                  resize: vertical;
+                  font-size: 0.95rem;
+                  transition: border-color 0.3s;
+                  min-height: 80px;
+                "
+                placeholder="필요한 메모를 입력하세요"
+              ></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary-btn" data-modal="editOrderModal">
+            취소
+          </button>
+          <button class="btn primary-btn" id="confirmEditOrderBtn">
+            <i class="fa-solid fa-check"></i> 저장
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공통 JavaScript 파일 -->
+    <script src="js/utils.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- 페이지별 JavaScript 파일 -->
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>

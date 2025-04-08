@@ -1,0 +1,378 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TeckwahTMS</title>
+
+    <!-- ?뚮퉬肄?-->
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon" />
+
+    <!-- Ant Design CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/antd@5.11.0/dist/reset.css"
+    />
+
+    <!-- ?ъ슜???뺤쓽 CSS -->
+    <link rel="stylesheet" href="styles/additional.css" />
+
+    <!-- ?고듃 ?댁뜽 -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+    <style>
+      .tab-container {
+        display: flex;
+        border-bottom: 1px solid #e8e8e8;
+        margin-bottom: 20px;
+      }
+
+      .tab {
+        padding: 12px 24px;
+        cursor: pointer;
+        font-weight: 500;
+        position: relative;
+        transition: all 0.3s;
+      }
+
+      .tab.active {
+        color: var(--primary-color);
+      }
+
+      .tab.active:after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: var(--primary-color);
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+        display: flex;
+        align-items: center;
+      }
+
+      .section-title i {
+        margin-right: 8px;
+        color: var(--primary-color);
+      }
+
+      .notice-indicator {
+        display: inline-block;
+        padding: 2px 8px;
+        background-color: #e6f7ff;
+        color: #1890ff;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+      }
+
+      .handover-section {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      /* ?섏씠吏 ?댁슜???쒖떆?섎뒗/?④꺼吏???ㅽ???*/
+      .content-section {
+        display: none;
+      }
+
+      .content-section.active {
+        display: block;
+      }
+
+      tr {
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      tr:hover {
+        background-color: #f5f5f5;
+      }
+
+      .text-ellipsis {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+      }
+
+      /* ?쒕ぉ ?덈퉬 ?쒗븳 */
+      .title-cell {
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ?댁슜 ?덈퉬 ?쒗븳 */
+      .content-cell {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ?뚯씠釉??덉씠?꾩썐 ?ㅼ젙 */
+      .data-table {
+        table-layout: fixed !important;
+        width: 100% !important;
+      }
+
+      /* ?뚯씠釉??덈퉬 ?ㅼ젙 */
+      .data-table th:nth-child(1) {
+        width: 80px !important;
+      }
+
+      .data-table th:nth-child(2) {
+        width: 100px !important;
+      }
+
+      .data-table th:nth-child(3) {
+        width: 180px !important;
+      }
+
+      .data-table th:nth-child(4) {
+        width: auto !important;
+      }
+
+      /* ?뚯씠釉?? ?덈퉬 ?쒗븳 */
+      .data-table td:nth-child(1) {
+        width: 80px !important;
+        max-width: 80px !important;
+      }
+
+      .data-table td:nth-child(2) {
+        width: 100px !important;
+        max-width: 100px !important;
+      }
+
+      /* ?쒕ぉ ?덈퉬 ?쒗븳 */
+      .title-cell,
+      .data-table td:nth-child(3) {
+        width: 180px !important;
+        max-width: 180px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ?댁슜 ?덈퉬 ?쒗븳 */
+      .content-cell,
+      .data-table td:nth-child(4) {
+        width: auto !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <!-- ?덉씠?꾩썐 -->
+      <div class="main-layout">
+        <!-- ?ъ씠?쒕컮 -->
+        <aside id="sidebar" class="sidebar">
+          <img
+            class="logo"
+            src="assets/logo.png"
+            alt="濡쒓퀬"
+            style="
+              width: 100%;
+              max-width: 200px;
+              margin: 15px auto;
+              display: block;
+            "
+          />
+          <div class="logo-container" style="align-content: center">
+            <h1>TWLKR-TMS</h1>
+          </div>
+
+          <div class="user-info">
+            <div class="avatar">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div class="user-details">
+              <p class="user-name">CSAdmin</p>
+              <p class="user-role">CS</p>
+            </div>
+          </div>
+
+          <nav class="menu">
+            <ul>
+              <li class="menu-item">
+                <a href="index.html">
+                  <i class="fa-solid fa-chart-line"></i>
+                  <span>TMS</span>
+                </a>
+              </li>
+              <li class="menu-item active">
+                <a href="handover.html">
+                  <i class="fa-solid fa-right-left"></i>
+                  <span>Work-Notice</span>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="visualization.html">
+                  <i class="fa-solid fa-chart-bar"></i>
+                  <span>Visualization</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div class="logout-container">
+            <button id="logoutBtn" class="logout-btn">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>濡쒓렇?꾩썐</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- 硫붿씤 而⑦뀗痢?-->
+        <main class="main-content">
+          <!-- 而⑦뀗痢??곸뿭 -->
+          <div id="content-container" class="content-container">
+            <!-- ?몄닔?멸퀎 ?섏씠吏 -->
+            <div class="page-section" id="handoverPage">
+              <div class="main-card">
+                <div class="card-header">
+                  <div class="tab-container" style="margin-right: auto">
+                    <div class="tab active" data-tab="notice-section">
+                      <i class="fa-solid fa-bullhorn"></i> 怨듭??ы빆
+                    </div>
+                    <div class="tab" data-tab="handover-section">
+                      <i class="fa-solid fa-right-left"></i> ?몄닔?멸퀎
+                    </div>
+                  </div>
+                  <div class="card-actions">
+                    <button class="btn primary-btn" id="refreshHandoverBtn">
+                      <i class="fa-solid fa-arrows-rotate"></i> ?덈줈怨좎묠
+                    </button>
+                    <button class="btn primary-btn" id="newHandoverBtn">
+                      <i class="fa-solid fa-plus"></i> ?좉퇋 ?깅줉
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 怨듭??ы빆 ?뱀뀡 -->
+                <div class="content-section active" id="notice-section">
+                  <div class="handover-section">
+                    <div class="table-container">
+                      <table class="data-table" id="noticeTable">
+                        <thead>
+                          <tr>
+                            <th style="width: 80px">?묒꽦??/th>
+                            <th style="width: 100px">?묒꽦?쇱떆</th>
+                            <th style="width: 180px">?쒕ぉ</th>
+                            <th>?댁슜</th>
+                          </tr>
+                        </thead>
+                        <tbody id="noticeTableBody">
+                          <tr>
+                            <td colspan="4" class="empty-table">
+                              ?곗씠?곕? 遺덈윭?ㅻ뒗 以?..
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- ?섏씠吏?ㅼ씠???곸뿭 -->
+                    <div class="pagination">
+                      <button
+                        class="page-btn"
+                        data-page="prev"
+                        data-section="notice"
+                      >
+                        <i class="fa-solid fa-chevron-left"></i>
+                      </button>
+                      <span class="page-info" id="noticePageInfo">1 / 1</span>
+                      <button
+                        class="page-btn"
+                        data-page="next"
+                        data-section="notice"
+                      >
+                        <i class="fa-solid fa-chevron-right"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ?몄닔?멸퀎 ?뱀뀡 -->
+                <div class="content-section" id="handover-section">
+                  <div class="handover-section">
+                    <div class="table-container">
+                      <table class="data-table" id="handoverTable">
+                        <thead>
+                          <tr>
+                            <th style="width: 80px">?묒꽦??/th>
+                            <th style="width: 100px">?묒꽦?쇱떆</th>
+                            <th style="width: 180px">?쒕ぉ</th>
+                            <th>?댁슜</th>
+                          </tr>
+                        </thead>
+                        <tbody id="handoverTableBody">
+                          <tr>
+                            <td colspan="4" class="empty-table">
+                              ?곗씠?곕? 遺덈윭?ㅻ뒗 以?..
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- ?섏씠吏?ㅼ씠???곸뿭 -->
+                    <div class="pagination">
+                      <button
+                        class="page-btn"
+                        data-page="prev"
+                        data-section="handover"
+                      >
+                        <i class="fa-solid fa-chevron-left"></i>
+                      </button>
+                      <span class="page-info" id="handoverPageInfo">1 / 1</span>
+                      <button
+                        class="page-btn"
+                        data-page="next"
+                        data-section="handover"
+                      >
+                        <i class="fa-solid fa-chevron-right"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
