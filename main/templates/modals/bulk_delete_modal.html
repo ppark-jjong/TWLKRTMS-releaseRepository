@@ -1,0 +1,282 @@
+<!-- 일괄 삭제 모달 -->
+<div class="modal" id="bulkDeleteModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">주문 일괄 삭제</h2>
+        <button type="button" class="close-btn" id="closeBulkDeleteModalBtn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="selection-summary">
+          <p><span id="bulkDeleteSelectedCount">0</span>개 주문이 선택되었습니다.</p>
+        </div>
+        
+        <div class="warning-box">
+          <p><i class="fas fa-exclamation-triangle"></i> 주의: 이 작업은 되돌릴 수 없습니다!</p>
+          <p>선택한 모든 주문이 영구적으로 삭제됩니다.</p>
+        </div>
+        
+        <div class="confirmation-input">
+          <label for="deleteConfirmText">확인을 위해 <strong>"삭제"</strong>를 입력하세요:</label>
+          <input type="text" id="deleteConfirmText" placeholder="삭제" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secondary-btn" id="cancelBulkDeleteBtn">취소</button>
+        <button type="button" class="btn delete-btn" id="confirmBulkDeleteBtn" disabled>삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /**
+   * 초기화 함수
+   */
+  function init() {
+    console.log('[BulkDeleteModal] 초기화 시작');
+    
+    // 닫기/취소 버튼 이벤트
+    const closeBulkDeleteModalBtn = document.getElementById('closeBulkDeleteModalBtn');
+    const cancelBulkDeleteBtn = document.getElementById('cancelBulkDeleteBtn');
+    
+    if (closeBulkDeleteModalBtn) {
+      closeBulkDeleteModalBtn.addEventListener('click', function() {
+        hideModal();
+      });
+    }
+    
+    if (cancelBulkDeleteBtn) {
+      cancelBulkDeleteBtn.addEventListener('click', function() {
+        hideModal();
+      });
+    }
+    
+    // 삭제 확인 텍스트 입력 이벤트
+    const deleteConfirmText = document.getElementById('deleteConfirmText');
+    const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteBtn');
+    
+    if (deleteConfirmText && confirmBulkDeleteBtn) {
+      deleteConfirmText.addEventListener('input', function() {
+        confirmBulkDeleteBtn.disabled = this.value !== '삭제';
+      });
+    }
+    
+    // 일괄 삭제 확인 버튼 이벤트
+    if (confirmBulkDeleteBtn) {
+      confirmBulkDeleteBtn.addEventListener('click', function() {
+        submitBulkDelete();
+      });
+    }
+    
+    console.log('[BulkDeleteModal] 초기화 완료');
+  }
+  
+  /**
+   * 모달 표시
+   * @param {Array<string>} orderIds - 선택된 주문 ID 배열
+   */
+  function showModal(orderIds) {
+    const modal = document.getElementById('bulkDeleteModal');
+    if (!modal) return;
+    
+    // 권한 확인
+    const userRole = document.body.dataset.userRole || 'USER';
+    if (userRole !== 'ADMIN') {
+      showAlert('삭제 권한이 없습니다.', 'error');
+      return;
+    }
+    
+    if (!orderIds || orderIds.length === 0) {
+      showAlert('삭제할 주문을 선택해주세요.', 'warning');
+      return;
+    }
+    
+    // 선택된 주문 개수 표시
+    const bulkDeleteSelectedCount = document.getElementById('bulkDeleteSelectedCount');
+    if (bulkDeleteSelectedCount) {
+      bulkDeleteSelectedCount.textContent = orderIds.length;
+    }
+    
+    // 선택된 주문 ID 저장
+    localStorage.setItem('selectedOrderIdsForBulkDelete', JSON.stringify(orderIds));
+    
+    // 확인 텍스트 초기화
+    const deleteConfirmText = document.getElementById('deleteConfirmText');
+    if (deleteConfirmText) {
+      deleteConfirmText.value = '';
+    }
+    
+    // 삭제 버튼 비활성화
+    const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteBtn');
+    if (confirmBulkDeleteBtn) {
+      confirmBulkDeleteBtn.disabled = true;
+    }
+    
+    // 모달 표시
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // 애니메이션 효과
+    setTimeout(function() {
+      modal.classList.add('show');
+    }, 10);
+  }
+  
+  /**
+   * 모달 숨김
+   */
+  function hideModal() {
+    const modal = document.getElementById('bulkDeleteModal');
+    if (!modal) return;
+    
+    // 애니메이션 효과
+    modal.classList.remove('show');
+    
+    // 약간의 지연 후 완전히 숨김
+    setTimeout(function() {
+      modal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+    }, 300);
+  }
+  
+  /**
+   * 일괄 삭제 제출
+   */
+  async function submitBulkDelete() {
+    // 권한 확인
+    const userRole = document.body.dataset.userRole || 'USER';
+    if (userRole !== 'ADMIN') {
+      showAlert('주문 삭제 권한이 없습니다.', 'error');
+      return;
+    }
+    
+    // 선택된 주문 ID 가져오기
+    const selectedOrderIdsStr = localStorage.getItem('selectedOrderIdsForBulkDelete');
+    if (!selectedOrderIdsStr) {
+      showAlert('선택된 주문이 없습니다.', 'warning');
+      return;
+    }
+    
+    const selectedOrderIds = JSON.parse(selectedOrderIdsStr);
+    if (!selectedOrderIds || selectedOrderIds.length === 0) {
+      showAlert('선택된 주문이 없습니다.', 'warning');
+      return;
+    }
+    
+    try {
+      toggleLoading(true);
+      
+      // 삭제 기능을 비활성화하고 사용자에게 알림
+      showAlert('일괄 삭제 기능은 비활성화되었습니다. 상세 정보 모달에서만 삭제가 가능합니다.', 'warning');
+      hideModal();
+      return;
+      
+      // API 호출 비활성화 (백엔드 스키마와 일치하도록 orderIds 필드명 사용)
+      // const response = await callApi('POST', '/dashboard/delete', { orderIds: selectedOrderIds });
+      
+      if (response.success) {
+        const deletedCount = response.data && response.data.deletedCount ? response.data.deletedCount : selectedOrderIds.length;
+        showAlert(`${deletedCount}개 주문이 성공적으로 삭제되었습니다.`, 'success');
+        
+        // 모달 닫기
+        hideModal();
+        
+        // 테이블 새로고침
+        window.location.reload();
+      } else {
+        showAlert(response.message || '주문 삭제 중 오류가 발생했습니다.', 'error');
+      }
+    } catch (error) {
+      console.error('[BulkDeleteModal] 주문 삭제 중 오류:', error);
+      showAlert('주문 삭제 중 오류가 발생했습니다.', 'error');
+    } finally {
+      toggleLoading(false);
+    }
+  }
+  
+  /**
+   * API 호출 함수
+   * @param {string} method - HTTP 메서드
+   * @param {string} url - API URL
+   * @param {Object} data - 요청 데이터
+   * @returns {Promise<Object>} - 응답 데이터
+   */
+  async function callApi(method, url, data) {
+    try {
+      const options = {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      };
+      
+      if (data && (method === 'POST' || method === 'PUT')) {
+        options.body = JSON.stringify(data);
+      }
+      
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP 오류: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`[BulkDeleteModal] API ${method} 오류:`, error);
+      return {
+        success: false,
+        message: '서버 통신 중 오류가 발생했습니다.'
+      };
+    }
+  }
+  
+  /**
+   * 로딩 표시 토글
+   * @param {boolean} isLoading - 로딩 중 여부
+   */
+  function toggleLoading(isLoading) {
+    const loadingSpinner = document.querySelector('.global-loading');
+    
+    if (loadingSpinner) {
+      loadingSpinner.style.display = isLoading ? 'flex' : 'none';
+    } else if (isLoading) {
+      // 글로벌 로딩 스피너가 없는 경우 생성
+      const spinner = document.createElement('div');
+      spinner.className = 'global-loading';
+      spinner.innerHTML = `
+        <div class="spinner-container">
+          <div class="spinner"></div>
+          <div class="spinner-text">처리 중...</div>
+        </div>
+      `;
+      document.body.appendChild(spinner);
+    }
+  }
+  
+  /**
+   * 알림 표시
+   * @param {string} message - 메시지
+   * @param {string} type - 알림 타입 (success, warning, error, info)
+   */
+  function showAlert(message, type = 'info') {
+    if (window.Alerts && typeof window.Alerts[type] === 'function') {
+      window.Alerts[type](message);
+    } else {
+      alert(message);
+    }
+  }
+  
+  // 문서 로드 완료 시 초기화
+  document.addEventListener('DOMContentLoaded', init);
+  
+  // 공개 API
+  window.bulkDeleteModal = {
+    show: showModal,
+    hide: hideModal
+  };
+})();
+</script>

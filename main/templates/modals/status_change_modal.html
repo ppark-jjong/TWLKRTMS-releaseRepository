@@ -1,0 +1,280 @@
+<!-- 상태 일괄 변경 모달 -->
+<div class="modal" id="statusChangeModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">주문 상태 일괄 변경</h2>
+        <button type="button" class="close-btn" id="closeStatusChangeModalBtn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="selection-summary">
+          <p><span id="selectedOrdersCount">0</span>개 주문이 선택되었습니다.</p>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label for="bulkStatusSelect">변경할 상태 *</label>
+            <select id="bulkStatusSelect" name="status" required>
+              <option value="">-- 상태 선택 --</option>
+              <option value="WAITING">대기</option>
+              <option value="IN_PROGRESS">진행 중</option>
+              <option value="COMPLETE">완료</option>
+              <option value="ISSUE">이슈</option>
+              <option value="CANCEL">취소</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- 비고 항목 제거 -->
+        
+        <div class="info-box">
+          <p class="info-text"><i class="fas fa-info-circle"></i> 주문 상태를 변경하면 해당 시간이 자동으로 기록됩니다.</p>
+          <p class="info-text">- '진행 중' 상태로 변경 시 출발 시간이 기록됩니다.</p>
+          <p class="info-text">- '완료' 상태로 변경 시 완료 시간이 기록됩니다.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secondary-btn" id="cancelStatusChangeBtn">취소</button>
+        <button type="button" class="btn primary-btn" id="confirmStatusChangeBtn">상태 변경</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /**
+   * 초기화 함수
+   */
+  function init() {
+    console.log('[StatusChangeModal] 초기화 시작');
+    
+    // 닫기/취소 버튼 이벤트
+    const closeStatusChangeModalBtn = document.getElementById('closeStatusChangeModalBtn');
+    const cancelStatusChangeBtn = document.getElementById('cancelStatusChangeBtn');
+    
+    if (closeStatusChangeModalBtn) {
+      closeStatusChangeModalBtn.addEventListener('click', function() {
+        hideModal();
+      });
+    }
+    
+    if (cancelStatusChangeBtn) {
+      cancelStatusChangeBtn.addEventListener('click', function() {
+        hideModal();
+      });
+    }
+    
+    // 상태 변경 확인 버튼 이벤트
+    const confirmStatusChangeBtn = document.getElementById('confirmStatusChangeBtn');
+    if (confirmStatusChangeBtn) {
+      confirmStatusChangeBtn.addEventListener('click', function() {
+        submitStatusChange();
+      });
+    }
+    
+    console.log('[StatusChangeModal] 초기화 완료');
+  }
+  
+  /**
+   * 모달 표시
+   * @param {Array<string>} orderIds - 선택된 주문 ID 배열
+   */
+  function showModal(orderIds) {
+    const modal = document.getElementById('statusChangeModal');
+    if (!modal) return;
+    
+    if (!orderIds || orderIds.length === 0) {
+      showAlert('변경할 주문을 선택해주세요.', 'warning');
+      return;
+    }
+    
+    // 선택된 주문 개수 표시
+    const selectedOrdersCount = document.getElementById('selectedOrdersCount');
+    if (selectedOrdersCount) {
+      selectedOrdersCount.textContent = orderIds.length;
+    }
+    
+    // 선택된 주문 ID 저장
+    localStorage.setItem('selectedOrderIds', JSON.stringify(orderIds));
+    
+    // 상태 선택 초기화
+    const bulkStatusSelect = document.getElementById('bulkStatusSelect');
+    if (bulkStatusSelect) {
+      bulkStatusSelect.value = '';
+    }
+    
+    // 비고 초기화
+    const bulkStatusRemark = document.getElementById('bulkStatusRemark');
+    if (bulkStatusRemark) {
+      bulkStatusRemark.value = '';
+    }
+    
+    // 모달 표시
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // 애니메이션 효과
+    setTimeout(function() {
+      modal.classList.add('show');
+    }, 10);
+  }
+  
+  /**
+   * 모달 숨김
+   */
+  function hideModal() {
+    const modal = document.getElementById('statusChangeModal');
+    if (!modal) return;
+    
+    // 애니메이션 효과
+    modal.classList.remove('show');
+    
+    // 약간의 지연 후 완전히 숨김
+    setTimeout(function() {
+      modal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+    }, 300);
+  }
+  
+  /**
+   * 상태 변경 제출
+   */
+  async function submitStatusChange() {
+    const bulkStatusSelect = document.getElementById('bulkStatusSelect');
+    const bulkStatusRemark = document.getElementById('bulkStatusRemark');
+    
+    if (!bulkStatusSelect || !bulkStatusSelect.value) {
+      showAlert('변경할 상태를 선택해주세요.', 'warning');
+      return;
+    }
+    
+    // 선택된 주문 ID 가져오기
+    const selectedOrderIdsStr = localStorage.getItem('selectedOrderIds');
+    if (!selectedOrderIdsStr) {
+      showAlert('선택된 주문이 없습니다.', 'warning');
+      return;
+    }
+    
+    const selectedOrderIds = JSON.parse(selectedOrderIdsStr);
+    if (!selectedOrderIds || selectedOrderIds.length === 0) {
+      showAlert('선택된 주문이 없습니다.', 'warning');
+      return;
+    }
+    
+    // 요청 데이터 구성 (백엔드 스키마와 일치하도록 orderIds 필드명 사용)
+    const requestData = {
+      orderIds: selectedOrderIds,
+      status: bulkStatusSelect.value
+    };
+    
+    try {
+      toggleLoading(true);
+      
+      // API 호출
+      const response = await callApi('POST', '/dashboard/status', requestData);
+      
+      if (response.success) {
+        const updatedCount = response.data && response.data.updatedCount ? response.data.updatedCount : selectedOrderIds.length;
+        showAlert(`${updatedCount}개 주문의 상태가 성공적으로 변경되었습니다.`, 'success');
+        
+        // 모달 닫기
+        hideModal();
+        
+        // 테이블 새로고침
+        window.location.reload();
+      } else {
+        showAlert(response.message || '주문 상태 변경 중 오류가 발생했습니다.', 'error');
+      }
+    } catch (error) {
+      console.error('[StatusChangeModal] 상태 변경 중 오류:', error);
+      showAlert('주문 상태 변경 중 오류가 발생했습니다.', 'error');
+    } finally {
+      toggleLoading(false);
+    }
+  }
+  
+  /**
+   * API 호출 함수
+   * @param {string} method - HTTP 메서드
+   * @param {string} url - API URL
+   * @param {Object} data - 요청 데이터
+   * @returns {Promise<Object>} - 응답 데이터
+   */
+  async function callApi(method, url, data) {
+    try {
+      const options = {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      };
+      
+      if (data && (method === 'POST' || method === 'PUT')) {
+        options.body = JSON.stringify(data);
+      }
+      
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP 오류: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`[StatusChangeModal] API ${method} 오류:`, error);
+      return {
+        success: false,
+        message: '서버 통신 중 오류가 발생했습니다.'
+      };
+    }
+  }
+  
+  /**
+   * 로딩 표시 토글
+   * @param {boolean} isLoading - 로딩 중 여부
+   */
+  function toggleLoading(isLoading) {
+    const loadingSpinner = document.querySelector('.global-loading');
+    
+    if (loadingSpinner) {
+      loadingSpinner.style.display = isLoading ? 'flex' : 'none';
+    } else if (isLoading) {
+      // 글로벌 로딩 스피너가 없는 경우 생성
+      const spinner = document.createElement('div');
+      spinner.className = 'global-loading';
+      spinner.innerHTML = `
+        <div class="spinner-container">
+          <div class="spinner"></div>
+          <div class="spinner-text">처리 중...</div>
+        </div>
+      `;
+      document.body.appendChild(spinner);
+    }
+  }
+  
+  /**
+   * 알림 표시
+   * @param {string} message - 메시지
+   * @param {string} type - 알림 타입 (success, warning, error, info)
+   */
+  function showAlert(message, type = 'info') {
+    if (window.Alerts && typeof window.Alerts[type] === 'function') {
+      window.Alerts[type](message);
+    } else {
+      alert(message);
+    }
+  }
+  
+  // 문서 로드 완료 시 초기화
+  document.addEventListener('DOMContentLoaded', init);
+  
+  // 공개 API
+  window.statusChangeModal = {
+    show: showModal,
+    hide: hideModal
+  };
+})();
+</script>

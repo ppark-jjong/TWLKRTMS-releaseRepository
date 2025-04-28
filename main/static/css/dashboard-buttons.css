@@ -1,0 +1,21 @@
+/**
+ * 대시보드 버튼 스타일
+ */
+
+/* 확인 입력 필드 */
+.confirmation-input {
+  margin-top: 15px;
+}
+
+.confirmation-input input {
+  margin-top: 5px;
+  padding: 8px;
+  width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.selection-summary {
+  margin-bottom: 15px;
+  font-weight: bold;
+}

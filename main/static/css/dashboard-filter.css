@@ -1,0 +1,283 @@
+/**
+ * 대시보드 필터 및 검색 관련 스타일
+ */
+
+/* 필터 영역 */
+.filter-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+}
+
+.date-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+/* Air Datepicker 커스텀 스타일 */
+.date-range-input {
+  padding: 8px 12px;
+  width: 220px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #fff;
+}
+
+.date-range-input:hover {
+  border-color: #1890ff;
+}
+
+.date-range-input:focus {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: none;
+}
+
+/* Air Datepicker 컬러 테마 커스텀 (antd 스타일) */
+.air-datepicker-cell.-selected-, .air-datepicker-cell.-selected-.-current- {
+  background: #1890ff;
+  color: #fff;
+}
+
+.air-datepicker-cell.-range-from-, .air-datepicker-cell.-range-to- {
+  border: 1px solid #91d5ff;
+  background: #e6f7ff;
+  border-radius: 2px;
+}
+
+.air-datepicker-cell.-range-from-::after {
+  background: #e6f7ff;
+}
+
+.air-datepicker-cell.-range-to-::after {
+  background: #e6f7ff;
+}
+
+/* 범위 내 날짜 스타일 */
+.air-datepicker-cell.-in-range- {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.air-datepicker-cell.-current- {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.air-datepicker-buttons {
+  justify-content: flex-end;
+}
+
+.air-datepicker-button {
+  color: #1890ff;
+}
+
+.date-separator {
+  color: #666;
+}
+
+.search-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.today-btn {
+  background-color: white;
+  color: #666;
+  border: 1px solid #d9d9d9;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.order-search {
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px 0 0 4px;
+  width: 180px;
+}
+
+.order-search .search-btn {
+  border-radius: 0 4px 4px 0;
+  margin-left: -1px;
+}
+
+/* 필터 패널 */
+.filter-action-section {
+  margin-bottom: 24px;
+}
+
+.filter-panel {
+  background-color: #f5f7fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.filter-group label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.reset-btn {
+  background-color: white;
+  color: #666;
+  border: 1px solid #d9d9d9;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  height: 36px;
+}
+
+/* 선택된 행 액션 패널 */
+.selected-actions {
+  background-color: #f5f7fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.selected-count {
+  font-size: 14px;
+  color: #333;
+}
+
+.selected-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* 일괄 처리 패널 */
+.bulk-action-panel {
+  display: none;
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background-color: rgba(215, 37, 25, 0.9);
+  color: white;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bulk-action-info {
+  font-weight: bold;
+}
+
+.selected-count {
+  margin-right: 5px;
+  font-size: 1.1em;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.bulk-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: white;
+  color: #D72519;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bulk-btn:hover {
+  background-color: #f8f8f8;
+}
+
+.bulk-btn.delete-btn {
+  background-color: #fff2f0;
+}
+
+.bulk-action-clear {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0 5px;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .filter-section,
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .date-picker-group,
+  .order-search {
+    flex-wrap: wrap;
+  }
+  
+  .selected-actions {
+    flex-direction: column;
+    gap: 16px;
+  }
+}

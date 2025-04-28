@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: teckwah-tms:latest
+    container_name: teckwah-tms
+    restart: none
+    ports:
+      - '8080:8080'
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Seoul

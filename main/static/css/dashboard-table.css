@@ -1,0 +1,301 @@
+/**
+ * 대시보드 테이블 관련 스타일
+ */
+
+/* 테이블 액션 영역 */
+.table-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.column-selector {
+  position: relative;
+}
+
+.column-selector-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.column-selector-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.column-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 200px;
+  display: none;
+}
+
+.column-selector-header {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.column-selector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.column-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.column-selector-item input[type="checkbox"] {
+  margin: 0;
+}
+
+.column-selector-item label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-actions-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.page-size-select {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  width: 110px;
+}
+
+/* 주문 테이블 */
+.order-table-container {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+}
+
+.order-table th,
+.order-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.order-table th {
+  background-color: #fafafa;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.order-table tr:hover td {
+  filter: brightness(0.95);
+}
+
+.checkbox-column {
+  width: 48px;
+  text-align: center;
+}
+
+.column-order-no {
+  min-width: 120px;
+}
+
+.column-type,
+.column-status {
+  min-width: 100px;
+}
+
+.column-department,
+.column-customer,
+.column-driver {
+  min-width: 120px;
+}
+
+.column-address {
+  min-width: 200px;
+}
+
+.column-eta,
+.column-create-time {
+  min-width: 160px;
+}
+
+.column-action {
+  width: 100px;
+  text-align: center;
+}
+
+.view-btn,
+.edit-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: #666;
+}
+
+.view-btn:hover,
+.edit-btn:hover {
+  color: var(--primary-color);
+}
+
+.no-data-row {
+  height: 120px;
+}
+
+.no-data-cell {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 행 상태에 따른 배경색 */
+.status-row-WAITING {
+  background-color: #fffbe6; /* 대기: #fffbe6 */
+}
+
+.status-row-IN_PROGRESS {
+  background-color: #e6f7ff; /* 진행: #e6f7ff */
+}
+
+.status-row-COMPLETE {
+  background-color: #f6ffed; /* 완료: #f6ffed */
+}
+
+.status-row-ISSUE {
+  background-color: #fff2f0; /* 이슈: #fff2f0 */
+}
+
+.status-row-CANCEL {
+  background-color: #f5f5f5; /* 취소: #f5f5f5 */
+}
+
+/* 클릭 가능한 행 표시 */
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+  background-color: #f5f5f5;
+}
+
+/* 클릭 효과 */
+.clicked-row {
+  background-color: #e6f7ff !important;
+}
+
+/* 클릭 효과를 상태별 색상과 조합 */
+.status-row-WAITING.clicked-row {
+  background-color: #fff7e6 !important;
+}
+
+.status-row-IN_PROGRESS.clicked-row {
+  background-color: #d6eeff !important;
+}
+
+.status-row-COMPLETE.clicked-row {
+  background-color: #e6ffe8 !important;
+}
+
+.status-row-ISSUE.clicked-row {
+  background-color: #ffe6e0 !important;
+}
+
+.status-row-CANCEL.clicked-row {
+  background-color: #eeeeee !important;
+}
+
+/* 상태 뱃지 스타일 */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.status-WAITING {
+  background-color: #fffbe6; /* 대기: #fffbe6 */
+  color: #d48806;
+  border: 1px solid #ffe58f;
+}
+
+.status-badge.status-IN_PROGRESS {
+  background-color: #e6f7ff; /* 진행: #e6f7ff */
+  color: #1890ff;
+  border: 1px solid #91d5ff;
+}
+
+.status-badge.status-COMPLETE {
+  background-color: #f6ffed; /* 완료: #f6ffed */
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.status-badge.status-ISSUE {
+  background-color: #fff2f0; /* 이슈: #fff2f0 */
+  color: #f5222d;
+  border: 1px solid #ffccc7;
+}
+
+.status-badge.status-CANCEL {
+  background-color: #f5f5f5; /* 취소: #f5f5f5 */
+  color: #595959;
+  border: 1px solid #d9d9d9;
+}
+
+/* 체크박스 관련 스타일 */
+.column-checkbox {
+  width: 40px;
+  text-align: center;
+}
+
+.table-checkbox, .row-checkbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .table-actions-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .page-size-select {
+    width: 100%;
+  }
+}

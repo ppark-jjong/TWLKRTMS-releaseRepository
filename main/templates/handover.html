@@ -1,0 +1,302 @@
+{% extends "layout.html" %}
+
+{% block title %}인수인계 - TeckWahKRTMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/handover.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">인수인계</h1>
+  <div class="page-actions">
+    <button class="create-button" onclick="openCreateModal()">
+      <i class="fas fa-plus"></i> 인수인계 작성
+    </button>
+  </div>
+</div>
+
+<div class="handover-container">
+  <!-- 공지사항 섹션 -->
+  <section class="notice-section panel">
+    <div class="panel-header">
+      <h2 class="panel-title"><i class="fas fa-bullhorn"></i> 공지사항</h2>
+      <div class="panel-toggle" onclick="togglePanel(this, 'notice-content')">
+        <i class="fas fa-chevron-up"></i>
+      </div>
+    </div>
+    <div class="panel-content notice-content">
+      <div class="table-responsive">
+        <table class="handover-table">
+          <thead>
+            <tr>
+              <th width="8%">번호</th>
+              <th width="55%">제목</th>
+              <th width="15%">작성자</th>
+              <th width="15%">작성일시</th>
+              <th width="7%">보기</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in notices %}
+            <tr data-id="{{ item.id }}" class="handover-row notice-row">
+              <td>{{ item.id }}</td>
+              <td class="title-cell">{{ item.title }}</td>
+              <td>{{ item.writer }}</td>
+              <td>{{ item.update_at|datetime }}</td>
+              <td>
+                <button
+                  class="action-btn view-btn"
+                  onclick="viewHandover('{{ item.id }}')"
+                  title="상세 보기"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="no-results">
+                <div class="empty-state">
+                  <i class="fas fa-info-circle"></i>
+                  <span>등록된 공지사항이 없습니다.</span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 인수인계 섹션 -->
+  <section class="handover-section panel">
+    <div class="panel-header">
+      <h2 class="panel-title"><i class="fas fa-exchange-alt"></i> 인수인계 목록</h2>
+    </div>
+    
+    <div class="panel-content">
+      <div class="table-responsive">
+        <table class="handover-table">
+          <thead>
+            <tr>
+              <th width="8%">번호</th>
+              <th width="50%">제목</th>
+              <th width="15%">작성자</th>
+              <th width="15%">작성일시</th>
+              <th width="12%">액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in handovers %}
+            <tr data-id="{{ item.id }}" class="handover-row">
+              <td>{{ item.id }}</td>
+              <td class="title-cell">{{ item.title }}</td>
+              <td>{{ item.writer }}</td>
+              <td>{{ item.update_at|datetime }}</td>
+              <td class="action-cell">
+                <button
+                  class="action-btn view-btn"
+                  onclick="viewHandover('{{ item.id }}')"
+                  title="상세 보기"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                {% if user.user_id == item.writer_id or user.user_role == 'ADMIN' %}
+                <button
+                  class="action-btn edit-btn"
+                  onclick="editHandover('{{ item.id }}')"
+                  title="수정하기"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  class="action-btn delete-btn"
+                  onclick="deleteHandover('{{ item.id }}')"
+                  title="삭제하기"
+                >
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="no-results">
+                <div class="empty-state">
+                  <i class="fas fa-clipboard-list"></i>
+                  <span>등록된 인수인계 내역이 없습니다.</span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 페이지네이션 -->
+      {% if total_pages > 1 %}
+      <div class="pagination">
+        {% if current_page > 1 %}
+        <a href="?page={{ current_page - 1 }}" class="pagination-arrow" title="이전 페이지">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+        {% endif %}
+        
+        {% if current_page > 3 %}
+        <a href="?page=1" class="pagination-link">1</a>
+        {% if current_page > 4 %}
+        <span class="pagination-ellipsis">...</span>
+        {% endif %}
+        {% endif %}
+        
+        {% for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3)) %}
+        {% if page == current_page %}
+        <span class="pagination-current">{{ page }}</span>
+        {% else %}
+        <a href="?page={{ page }}" class="pagination-link">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+        
+        {% if current_page < total_pages - 2 %}
+        {% if current_page < total_pages - 3 %}
+        <span class="pagination-ellipsis">...</span>
+        {% endif %}
+        <a href="?page={{ total_pages }}" class="pagination-link">{{ total_pages }}</a>
+        {% endif %}
+        
+        {% if current_page < total_pages %}
+        <a href="?page={{ current_page + 1 }}" class="pagination-arrow" title="다음 페이지">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<!-- 인수인계 상세 모달 -->
+<div id="handoverDetailModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title"><i class="fas fa-clipboard-list"></i> 인수인계 상세</h2>
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+    </div>
+    <div class="modal-loader">
+      <div class="spinner"></div>
+    </div>
+    <div class="modal-body" id="handoverDetailContent">
+      <!-- 동적으로 내용 채워짐 -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">닫기</button>
+      <span id="detailModalActions"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 인수인계 작성 모달 -->
+<div id="handoverCreateModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle" class="modal-title"><i class="fas fa-pen"></i> 인수인계 작성</h2>
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="handoverForm" class="handover-form">
+        <input type="hidden" id="handoverId" name="id" value="" />
+        <div class="form-group">
+          <label for="title">제목 <span class="required">*</span></label>
+          <input type="text" id="title" name="title" class="form-control" required 
+                 placeholder="제목을 입력하세요" />
+        </div>
+        <div class="form-group">
+          <label for="content">내용 <span class="required">*</span></label>
+          <textarea
+            id="content"
+            name="content"
+            rows="12"
+            class="form-control"
+            required
+            placeholder="내용을 입력하세요..."
+          ></textarea>
+        </div>
+        {% if user.user_role == 'ADMIN' %}
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="isNotice" name="is_notice" />
+            <span class="checkbox-text">공지사항으로 등록</span>
+          </label>
+        </div>
+        {% endif %}
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" id="saveHandoverBtn" onclick="submitHandoverForm()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 삭제 확인 모달 -->
+<div id="deleteConfirmModal" class="modal">
+  <div class="modal-content modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title"><i class="fas fa-exclamation-triangle"></i> 삭제 확인</h2>
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-message">
+        <p>이 인수인계를 삭제하시겠습니까?</p>
+        <p class="text-danger">삭제된 항목은 복구할 수 없습니다.</p>
+      </div>
+      <input type="hidden" id="deleteHandoverId" value="" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">삭제</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 인수인계 페이지 JS 스크립트 -->
+<script>
+  console.log('[Handover] 페이지 스크립트 로드 시작');
+  
+  // 스크립트 로더를 통해 필요한 모듈 로드
+  if (window.ScriptLoader) {
+    // 먼저 공통 모듈 로드
+    ScriptLoader.loadDependencies(
+      ScriptLoader.dependencies.common,
+      ['utils', 'api', 'auth', 'alerts', 'modal'],
+      function() {
+        console.log('[Handover] 공통 모듈 로드 완료');
+        
+        // 이후 인수인계 모듈 로드
+        ScriptLoader.loadDependencies(
+          ScriptLoader.dependencies.page,
+          'handover',
+          function() {
+            console.log('[Handover] 인수인계 모듈 로드 완료');
+            
+            // 인수인계 초기화 (handover.js의 init 함수 호출)
+            if (window.Handover && typeof Handover.init === 'function') {
+              Handover.init();
+              console.log('[Handover] 초기화 완료');
+            } else {
+              console.error('[Handover] 인수인계 모듈이 올바르게 로드되지 않았습니다.');
+            }
+          }
+        );
+      }
+    );
+  } else {
+    console.error('[Handover] 스크립트 로더를 찾을 수 없습니다.');
+  }
+</script>
+{% endblock %}

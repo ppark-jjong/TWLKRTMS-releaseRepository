@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}TeckWahKRTMS{% endblock %}</title>
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" />
+    <!-- 공통 스타일 및 폰트 -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- 공통 CSS 파일 (항상 먼저 로드) -->
+    <link rel="stylesheet" href="/static/css/common.css" />
+    <link rel="stylesheet" href="/static/css/main.css" />
+    <link rel="stylesheet" href="/static/css/layout.css" />
+    <link rel="stylesheet" href="/static/css/modal.css" />
+    <link rel="stylesheet" href="/static/css/alerts.css" />
+
+    <!-- Air Datepicker 라이브러리 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/air-datepicker@3.3.5/air-datepicker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/air-datepicker@3.3.5/air-datepicker.min.js"></script>
+    <script>
+      // Air Datepicker 한국어 설정 - 전역 변수로 제대로 설정
+      window.AirDatepickerLocaleKO = {
+        days: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
+        daysShort: ['일', '월', '화', '수', '목', '금', '토'],
+        daysMin: ['일', '월', '화', '수', '목', '금', '토'],
+        months: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+        monthsShort: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+        today: '오늘',
+        clear: '초기화',
+        dateFormat: 'yyyy-MM-dd',
+        timeFormat: 'hh:mm aa',
+        firstDay: 0
+      };
+    </script>
+    
+    <!-- 추가 CSS 블록 (페이지별 특화 스타일) -->
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body data-user-role="{{ get_user(request).user_role or 'USER' }}">
+    <div id="app" class="app-container">
+      <!-- 사이드바 컴포넌트 -->
+      <div class="sidebar" id="sidebar">
+        <!-- 로고 및 시스템명 -->
+        <div class="sidebar-header">
+          <!-- 사이드바 토글 버튼 추가 -->
+          <button id="sidebarToggleBtn" class="sidebar-toggle">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h1 class="sidebar-title">
+            <span id="fullTitle">TWLKR-TMS</span>
+            <span id="shortTitle">TMS</span>
+          </h1>
+        </div>
+
+        <!-- 사용자 정보 (user 객체가 있을 때만 표시) -->
+        {% if user is defined %}
+        <div class="user-info-section">
+          <div class="user-avatar">
+            <i class="fas fa-user"></i>
+          </div>
+          <div class="user-details">
+            <div class="user-name">{{ user.user_id }}</div>
+            <div class="user-role">{{ user.user_department }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 메뉴 항목 -->
+        <nav class="sidebar-menu">
+          <ul>
+            {% if request.url.path != '/login' %}
+            <li
+              class="menu-item {% if request.url.path == '/dashboard' %}active{% endif %}"
+            >
+              <a href="/dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>TMS</span>
+              </a>
+            </li>
+            <li
+              class="menu-item {% if request.url.path == '/handover' %}active{% endif %}"
+            >
+              <a href="/handover">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Work-Notice</span>
+              </a>
+            </li>
+            {% if user is defined and user.user_role == 'ADMIN' %}
+            <li
+              class="menu-item {% if request.url.path == '/users' %}active{% endif %}"
+            >
+              <a href="/users">
+                <i class="fas fa-users"></i>
+                <span>User Management</span>
+              </a>
+            </li>
+            {% endif %} {% else %}
+            <li class="menu-item active">
+              <a href="/login">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>로그인</span>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+
+        <!-- 하단 로그아웃 버튼 (로그인 상태일때만) -->
+        <div class="sidebar-footer">
+          {% if request.url.path != '/login' and user is defined %}
+          <button class="logout-button" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>로그아웃</span>
+          </button>
+          {% endif %}
+          <!-- 로고 표시 -->
+          <div class="bottom-logo">
+            <img src="/static/images/logo.png" alt="Teckwah 로고" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 메인 콘텐츠 영역 -->
+      <div class="main-content">
+        <!-- 콘텐츠 영역 -->
+        <div class="content-body">{% block content %}{% endblock %}</div>
+      </div>
+    </div>
+
+    <!-- 전역 알림 컨테이너 -->
+    <div id="alertContainer" class="alert-container"></div>
+
+    <!-- 로딩 오버레이 -->
+    <div class="loading-overlay">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+    <!-- 공통 스크립트 -->
+    <script>
+      // 전역 오류 처리
+      window.addEventListener('error', function (event) {
+        console.error('전역 오류 발생:', event.error);
+      });
+
+      // 사이드바 토글 기능
+      document.addEventListener('DOMContentLoaded', function () {
+        const app = document.getElementById('app');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+
+        if (sidebarToggleBtn) {
+          sidebarToggleBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (app) {
+              app.classList.toggle('sidebar-collapsed');
+            }
+          });
+        }
+
+        // 모바일 화면에서 사이드바 자동 축소
+        function checkMobileView() {
+          if (window.innerWidth < 768 && app) {
+            app.classList.add('sidebar-collapsed');
+          }
+        }
+
+        // 초기 모바일 체크
+        checkMobileView();
+
+        // 화면 크기 변경 감지
+        window.addEventListener('resize', checkMobileView);
+      });
+    </script>
+
+    <!-- 공통 스크립트 로드 (모든 페이지 공통) -->
+    <script src="/static/js/common/logger.js"></script>
+
+    <!-- 페이지별 추가 스크립트 -->
+    {% block extra_js %}{% endblock %}
+
+    <!-- 페이지 초기화 - 단일 DOMContentLoaded 이벤트 핸들러 -->
+    <script>
+      // 페이지 초기화 - 단일 진입점
+      document.addEventListener('DOMContentLoaded', function () {
+        console.log('[초기화] 페이지 로드 완료: ' + window.location.pathname);
+
+        // 사이드바 초기화
+        initSidebar();
+      });
+
+      // 사이드바 초기화 함수
+      function initSidebar() {
+        const app = document.getElementById('app');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+
+        if (sidebarToggleBtn) {
+          sidebarToggleBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (app) {
+              app.classList.toggle('sidebar-collapsed');
+            }
+          });
+        }
+
+        // 모바일 화면에서 사이드바 자동 축소
+        function checkMobileView() {
+          if (window.innerWidth < 768 && app) {
+            app.classList.add('sidebar-collapsed');
+          }
+        }
+
+        // 초기 모바일 체크
+        checkMobileView();
+
+        // 화면 크기 변경 감지
+        window.addEventListener('resize', checkMobileView);
+      }
+    </script>
+  </body>
+</html>

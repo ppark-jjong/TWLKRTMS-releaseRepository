@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로그인 - TeckWahKRTMS</title>
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/static/css/main.css" />
+    <link rel="stylesheet" href="/static/css/login.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <img src="/static/images/logo.png" alt="Logo" class="login-logo" />
+          <h2 class="login-title">TeckWahKRTMS</h2>
+          <p class="login-subtitle">By TeckWahKR Operation Team</p>
+        </div>
+
+        {% if error %}
+        <div class="login-error">
+          <p class="error-title">로그인 오류</p>
+          <p class="error-message">{{ error }}</p>
+          <button
+            class="error-close"
+            onclick="this.parentNode.style.display='none'"
+          >
+            ×
+          </button>
+        </div>
+        {% endif %}
+
+        {% if redirect_message %}
+        <div class="login-error">
+          <p class="error-title">인증 필요</p>
+          <p class="error-message">{{ redirect_message }}</p>
+          <button
+            class="error-close"
+            onclick="this.parentNode.style.display='none'"
+          >
+            ×
+          </button>
+        </div>
+        {% endif %}
+
+        <form action="/auth/login" method="post" class="login-form">
+          <div class="form-group">
+            <input
+              type="text"
+              name="user_id"
+              placeholder="사용자 ID"
+              required
+              autofocus
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="password"
+              name="password"
+              placeholder="비밀번호"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <button type="submit" class="login-button">로그인</button>
+          </div>
+        </form>
+
+        {% if debug %}
+        <div class="debug-login">
+          <p class="debug-title">개발 환경 전용 - 빠른 로그인</p>
+          <div class="debug-buttons">
+            <button onclick="quickLogin('admin', 'admin1234')">관리자 계정</button>
+            <button onclick="quickLogin('user1', 'user1234')">
+              일반 사용자 계정
+            </button>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 전역 알림 컨테이너 -->
+    <div id="alertContainer" class="alert-container"></div>
+
+    <!-- 공통 유틸리티 스크립트 -->
+    <script src="/static/js/script-loader.js"></script>
+    <script src="/static/js/main.js"></script>
+    
+    <!-- 로그인 페이지 스크립트 -->
+    <script>
+      console.log('[Login] 페이지 스크립트 로드 시작');
+      
+      // 스크립트 로더를 통해 필요한 모듈 로드
+      if (window.ScriptLoader) {
+        // 로그인 페이지는 최소한의 의존성만 필요 (utils, alerts)
+        ScriptLoader.loadDependencies(
+          ScriptLoader.dependencies.common,
+          ['utils', 'alerts'],
+          function() {
+            console.log('[Login] 공통 모듈 로드 완료');
+            initLoginPage();
+          }
+        );
+      } else {
+        console.error('[Login] 스크립트 로더를 찾을 수 없습니다. 직접 초기화합니다.');
+        // 스크립트 로더가 없어도 기본 기능은 동작하도록 초기화
+        initLoginPage();
+      }
+      
+      // 로그인 페이지 초기화
+      function initLoginPage() {
+        // 로그인 페이지에서의 빠른 로그인 기능
+        window.quickLogin = function(userId, password) {
+          document.querySelector('input[name="user_id"]').value = userId;
+          document.querySelector('input[name="password"]').value = password;
+          document.querySelector('.login-form').submit();
+        };
+    
+        // 페이지 로드 시 리다이렉션 이유가 있으면 알림 표시
+        // URL에서 리다이렉션 이유 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectReason = urlParams.get('reason');
+        
+        if (redirectReason) {
+          let message = '';
+          
+          switch(redirectReason) {
+            case 'session_expired':
+              message = '세션이 만료되었습니다. 다시 로그인해주세요.';
+              break;
+            case 'auth_required':
+              message = '이 페이지에 접근하려면 로그인이 필요합니다.';
+              break;
+            case 'logout_success':
+              message = '성공적으로 로그아웃되었습니다.';
+              break;
+            case 'unauthorized':
+              message = '권한이 없습니다. 로그인 후 이용해주세요.';
+              break;
+            default:
+              message = '로그인이 필요합니다.';
+          }
+          
+          // 알림 모듈이 로드되었는지 확인
+          if (window.Alerts) {
+            const alertType = redirectReason === 'logout_success' ? 'info' : 'warning';
+            Alerts.show(message, alertType, { duration: 5000 });
+          } else {
+            // 일반 alert 사용
+            alert(message);
+          }
+          
+          // URL에서 쿼리 파라미터 제거 (히스토리 관리)
+          const url = new URL(window.location.href);
+          url.search = '';
+          window.history.replaceState({}, document.title, url);
+        }
+        
+        // 폼 제출 이벤트
+        document.querySelector('.login-form').addEventListener('submit', function(e) {
+          const userId = document.querySelector('input[name="user_id"]').value.trim();
+          const password = document.querySelector('input[name="password"]').value.trim();
+          
+          if (!userId || !password) {
+            e.preventDefault();
+            
+            if (window.Alerts) {
+              Alerts.warning('사용자 ID와 비밀번호를 모두 입력해주세요.');
+            } else {
+              alert('사용자 ID와 비밀번호를 모두 입력해주세요.');
+            }
+          }
+        });
+        
+        console.log('[Login] 초기화 완료');
+      }
+    </script>
+  </body>
+</html>
