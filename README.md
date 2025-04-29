@@ -45,9 +45,9 @@ flowchart TD
     subgraph GCP
         CA[Cloud Armor / TLS]
         FW[Firewall Allow-list]
-        GAE["GAE Flex\n(Docker Container)"]
+        GAE["GAE Flex (Docker Container)"]
         Log[Logging & Monitoring]
-        SQL["Cloud SQL\nMySQL 8.0"]
+        SQL["Cloud SQL (MySQL 8.0)"]
         CA --> FW --> GAE --> Log
         GAE --> SQL
     end
