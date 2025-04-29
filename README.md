@@ -27,14 +27,12 @@
 
 ```mermaid
 flowchart TD
-    A[Client Browser] --> B{Session\nCookie?}
+    A[Client Browser] --> B{Session or Cookie?}
     B -- No --> C[Redirect to /login]
     B -- Yes --> D[SSR Render HTML]
     D --> A
-    A --> E[Client-side JS (CSR) API Calls]
+    A --> E["Client-side JS or (CSR) API Calls"]
 ```
-
-###
 
 ---
 
@@ -47,9 +45,9 @@ flowchart TD
     subgraph GCP
         CA[Cloud Armor / TLS]
         FW[Firewall Allow-list]
-        GAE[GAE Flex<br>(Docker Container)]
+        GAE["GAE Flex\n(Docker Container)"]
         Log[Logging & Monitoring]
-        SQL[Cloud SQL<br>MySQL 8.0]
+        SQL["Cloud SQL\nMySQL 8.0"]
         CA --> FW --> GAE --> Log
         GAE --> SQL
     end
