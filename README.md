@@ -1,100 +1,96 @@
-# 🚚 TWLKR 배송 실시간 관제 시스템 README&#x20;
+# 🚚 TWLKR Real-Time Delivery Control System — README
 
-> **계속 수정 중이며 본 공유 코드는 수정 개발 중에 있습니다. 25년 5월 중으로 서버 배포 시 url 공유 예정입니다.**
+> **This repository is under active development. The production URL will be shared after the server is deployed in May 2025.**
 
 ---
 
-## 1. 프로젝트 개요 및 활용 아키텍처
+## 1. Project Overview & Architecture
 
-### 1-1. 프로젝트 목적
+### 1‑1. Purpose
 
-- **실시간 배송 주문 관리**: ETA(예상 도착 시간) 기준으로 주문을 조회·제어합니다.
-- **효율적 배차**: 기사 배정·상태 전이를 통합 제공합니다.
-- **권한 구분**: 일반 사용자 **USER** / 관리자 **ADMIN** 두 역할로 기능을 분리합니다.
+- **Real‑time order management** — query and control delivery orders based on ETA (Estimated Time of Arrival).
+- **Efficient dispatch** — unified interface for assigning couriers and updating delivery states.
+- **Role‑based access** — separate feature sets for **USER** and **ADMIN** accounts.
 
+### 1‑2. Technology Stack
 
+| Layer            | Technologies                                           | Notes                                |
+| ---------------- | ------------------------------------------------------ | ------------------------------------ |
+| **Backend**      | Python 3.12 · FastAPI · Jinja2 (SSR)                   | Single application container         |
+| **Frontend**     | HTML + CSS · Modular JavaScript (minimal global scope) | CSR interaction modules              |
+| **Database**     | MySQL 8.0 (`init-db.sql`) · Cloud SQL                  | Private IP · IAM DB Auth             |
+| **Infrastructure** | Docker → Google App Engine Flexible (`runtime: custom`) | Cloud Armor · Firewall               |
 
-### 1-2. 기술 스택
-
-| 레이어                | 사용 기술                                                  | 비고                       |
-| ------------------ | ------------------------------------------------------ | ------------------------ |
-| **Backend**        | Python 3.12 · FastAPI · Jinja2(SSR)                    | 단일 애플리케이션 컨테이너           |
-| **Frontend**       | HTML + CSS · 모듈형 JavaScript(전역 네임스페이스 최소화)             | CSR 인터랙션 모듈화             |
-| **Database**       | MySQL 8.0(스키마: `init-db.sql`) · Cloud SQL              | Private IP · IAM DB Auth |
-| **Infrastructure** | Docker → Google App Engine Flexible(`runtime: custom`) | Cloud Armor / Firewall   |
-
-### 1-3. 요청 흐름 (로그인 → SSR → CSR)
+### 1‑3. Request Flow (Login → SSR → CSR)
 
 ```mermaid
 flowchart TD
-    A[Client Browser] --> B{Session or Cookie?}
-    B -- No --> C[Redirect to /login]
-    B -- Yes --> D[SSR Render HTML]
+    A["Client Browser"] --> B{Session or Cookie?}
+    B -- "No"  --> C["Redirect to /login"]
+    B -- "Yes" --> D["SSR Render HTML"]
     D --> A
-    A --> E["Client-side JS or (CSR) API Calls"]
+    A --> E["Client‑side JS (CSR) API Calls"]
 ```
 
 ---
 
-## 2. 배포 아키텍처 및 보안 사항
+## 2. Deployment Architecture & Security
 
-### 2-1. 인프라 개요
+### 2‑1. Infrastructure Overview
 
 ```mermaid
 flowchart TD
     subgraph GCP
-        CA[Cloud Armor / TLS]
-        FW[Firewall Allow-list]
+        CA["Cloud Armor / TLS"]
+        FW["Firewall Allow‑list"]
         GAE["GAE Flex (Docker Container)"]
-        Log[Logging & Monitoring]
+        Log["Logging & Monitoring"]
         SQL["Cloud SQL (MySQL 8.0)"]
         CA --> FW --> GAE --> Log
         GAE --> SQL
     end
 ```
 
-### 2-2. 애플리케이션 보안
+### 2‑2. Application Security Controls
 
-| 영역                   | 조치 사항                                                                     |
-| -------------------- | ------------------------------------------------------------------------- |
-| **GAE Flex**         | Cloud Armor / Firewall, HSTS, `X-Content-Type-Options`, `X-Frame-Options` |
-| **CORS**             | 최소 허용 도메인 화이트리스트만 허용                                                      |
-| **Sessions**         | 서버-사이드 세션, `HttpOnly`+`Secure` 쿠키, 만료 시 자동 로그아웃                           |
-| **Cloud SQL**        | Private IP, SSL/TLS, IAM DB Auth, 자동 백업, 최소 권한 파라미터                       |
-| **Input Validation** | 서버 핵심 검증 + 클라이언트 보조 검증, SQL 인젝션·XSS 방지                                    |
-| **Logging**          | PII 저장 금지, `{success, error_code, message}` 단일 JSON 스키마                   |
+| Area                | Measures                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| **GAE Flex**        | Cloud Armor · Firewall, HSTS, `X-Content-Type-Options`, `X-Frame-Options`                   |
+| **CORS**            | Allow‑list only the minimum required domains                                                |
+| **Sessions**        | Server‑side sessions, `HttpOnly` + `Secure` cookies, automatic logout on expiration         |
+| **Cloud SQL**       | Private IP, SSL/TLS, IAM DB Auth, automated backups, least‑privilege parameters             |
+| **Input Validation**| Central server‑side validation with client‑side assistance; protection against SQLi and XSS |
+| **Logging**         | No PII stored; unified JSON schema `{success, error_code, message}`                         |
 
-### 2-3. 배포 파이프라인
+### 2‑3. Deployment Pipeline
 
-1. 단일 **Dockerfile** 빌드 → GAE Flex `gcloud app deploy`.
-2. 환경 변수로 비밀·구성 관리.
-3. Cloud SQL 연결은 **Cloud SQL Auth Proxy**를 로컬 개발 시 사용.
-
----
-
-## 3. 주요 기능 (User Perspective)
-
-### 3-1. Dashboard
-
-- **실시간 배송 주문 목록 조회**
-  ![스크린샷 2025-04-29 140553](https://github.com/user-attachments/assets/c27c893f-2f02-4430-aff5-7c536ed8445f)
-- **배송 주문 생성**
-  ![스크린샷 2025-04-29 140601](https://github.com/user-attachments/assets/fe484ca4-a5e9-4d97-b1f0-4abd447c0c74)
-- **배차 operation 사용자를 위한 기사 배차 처리 및 배송 상태 변경**
-- ![스크린샷 2025-04-29 140624](https://github.com/user-attachments/assets/b9458347-aaca-48b0-ae84-60f354676491)
-- ![스크린샷 2025-04-29 140643](https://github.com/user-attachments/assets/83e79242-d051-42e0-9838-61c8f894c09b)
-
-- **주문 상세 정보 확인**
-- ![스크린샷 2025-04-29 140607](https://github.com/user-attachments/assets/e73a5ef9-f2ce-47af-99fd-6c78e7fc8426)
-
-- **간단한 데이터 시각화**
-- ![스크린샷 2025-04-29 140734](https://github.com/user-attachments/assets/5d493136-78ba-46f5-9bca-0f4c9e8e3f23)
-
-
+1. Build a single **Dockerfile** and deploy with `gcloud app deploy` (GAE Flex).
+2. Manage secrets and configuration through environment variables.
+3. For local development, connect to Cloud SQL via **Cloud SQL Auth Proxy**.
 
 ---
 
+## 3. Key Features (User Perspective)
 
+### 3‑1. Dashboard
 
-> 문의·제안은 Issues 탭을 통해 남겨 주세요.
+- **Real‑time delivery order list**
+  ![스크린샷 2025-04-29 140553](https://github.com/user-attachments/assets/92c132a8-9a72-4cd9-bf37-03c30e0e789e)
+
+- **Create new delivery orders**
+  ![스크린샷 2025-04-29 140601](https://github.com/user-attachments/assets/e6b1a63b-da94-48cf-b888-2a3551d7d448)
+
+- **Assign couriers and update delivery status (for dispatch operators)**
+  ![스크린샷 2025-04-29 140643](https://github.com/user-attachments/assets/e7d3d3bb-962c-4d5e-9bb2-8542e79bb34e)
+  ![스크린샷 2025-04-29 140624](https://github.com/user-attachments/assets/06f6ef94-788f-4702-9206-b39fd6b29888)
+
+- **View detailed order information**
+  ![스크린샷 2025-04-29 140607](https://github.com/user-attachments/assets/461ec753-4693-477d-84d2-4287a0923782)
+
+- **Basic data visualizations (e.g., order volumes, courier workload)**
+  ![스크린샷 2025-04-29 140734](https://github.com/user-attachments/assets/28ce2a44-cfe4-4da4-a1bd-cf899976191c)
+
+---
+
+> For questions or suggestions, please open an issue in the **Issues** tab.
 
