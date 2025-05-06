@@ -13,8 +13,11 @@ import logging
 from datetime import datetime
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Optional
+from main.utils.config import get_settings
 
 # --- 로깅 설정 초기화 ---
+settings = get_settings()
+
 logging.basicConfig(
     level=settings.LOG_LEVEL,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -25,7 +28,6 @@ logger = logging.getLogger(__name__)
 # --- 프로젝트 모듈 임포트 ---
 # 실제 프로젝트 구조('main.')에 맞게 수정 필요할 수 있음.
 # 여기서는 main.py 기준으로 올바른 경로 사용.
-from main.utils.config import get_settings
 from main.utils.database import test_db_connection
 from main.routes import (
     auth_route,
@@ -37,7 +39,7 @@ from main.routes import (
 from main.core.templating import templates
 
 # --- 설정 로드 ---
-settings = get_settings()
+# settings = get_settings() # 이 라인을 위로 이동시킴
 
 
 # 템플릿 설정
