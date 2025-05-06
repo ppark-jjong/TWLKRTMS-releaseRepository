@@ -1,39 +1,63 @@
 import time
 import uuid
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, JSONResponse
 from contextlib import asynccontextmanager
+from fastapi.templating import Jinja2Templates
+import os
+import logging
+from datetime import datetime
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Optional
+
+# --- 로깅 설정 초기화 ---
+logging.basicConfig(
+    level=settings.LOG_LEVEL,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 # --- 프로젝트 모듈 임포트 ---
-# 주의: utils 내부 모듈들의 import 경로가 'backend.' 로 시작하는 경우,
 # 실제 프로젝트 구조('main.')에 맞게 수정 필요할 수 있음.
 # 여기서는 main.py 기준으로 올바른 경로 사용.
 from main.utils.config import get_settings
 from main.utils.database import test_db_connection
-from main.utils.logger import logger
-from main.routes import auth_route, dashboard_route
+from main.routes import (
+    auth_route,
+    dashboard_route,
+    handover_route,
+    users_route,
+    excel_export,
+)
 from main.core.templating import templates
 
 # --- 설정 로드 ---
 settings = get_settings()
 
-# --- Jinja2 템플릿 설정 (제거) ---
-# templates = Jinja2Templates(directory="main/templates") # 제거
+
+# 템플릿 설정
+templates = Jinja2Templates(directory="main/templates")
 
 
 # --- Lifespan 이벤트 핸들러 ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 애플리케이션 시작 시
-    logger.info("애플리케이션 시작 (lifespan)...")
+    logging.info("애플리케이션 시작 (lifespan)...")
     test_db_connection()
+
+    # 쿠키 기반 세션만 사용하므로 메모리 기반 세션 정리 비활성화
+    # from main.utils.security import initialize_session_cleanup
+    # initialize_session_cleanup()
+
     yield
     # 애플리케이션 종료 시
-    logger.info("애플리케이션 종료 (lifespan)...")
+    logging.info("애플리케이션 종료 (lifespan)...")
 
 
 # --- FastAPI 앱 생성 (lifespan 적용) ---
@@ -46,94 +70,110 @@ app = FastAPI(
 )
 
 
-# --- 미들웨어 설정 ---
+# --- 미들웨어 클래스 정의 ---
 
 
-# 0. 사용자 정보 미들웨어 (템플릿에 user 제공)
-@app.middleware("http")
-async def inject_user_middleware(request: Request, call_next):
-    """
-    모든 요청에 대해 템플릿에 user 정보를 제공하기 위한 미들웨어
-    """
-    # 요청에서 세션 정보 가져오기
-    user = request.session.get("user", {"user_role": "USER"})
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())[:8]
+        start_time = time.time()
+        client_host = request.headers.get("x-forwarded-for") or request.client.host
 
-    # 요청 객체에 user 정보 저장 (템플릿에서 접근 가능)
-    request.state.user = user
-
-    # 다음 미들웨어 호출
-    response = await call_next(request)
-    return response
-
-
-# 1. 로깅 미들웨어 (규칙 6)
-@app.middleware("http")
-async def logging_middleware(request: Request, call_next):
-    """
-    모든 HTTP 요청/응답을 로깅하는 미들웨어입니다.
-    요청 ID, 클라이언트 IP, 요청 경로, 처리 시간, 상태 코드를 로깅합니다.
-    """
-    request_id = str(uuid.uuid4())[:8]
-    start_time = time.time()
-
-    # 클라이언트 IP 확인 (로드밸런서/프록시 고려)
-    client_host = request.headers.get("x-forwarded-for") or request.client.host
-
-    logger.info(
-        f"[Request Start] ID: {request_id}, IP: {client_host}, Method: {request.method}, Path: {request.url.path}"
-    )
-
-    try:
-        response: Response = await call_next(request)
-        process_time = time.time() - start_time
-        response.headers["X-Request-ID"] = request_id
         logger.info(
-            f"[Request End] ID: {request_id}, Status: {response.status_code}, Time: {process_time:.4f}s"
+            f"[Request Start] ID: {request_id}, IP: {client_host}, Method: {request.method}, Path: {request.url.path}"
         )
-        return response
-    except Exception as e:
-        process_time = time.time() - start_time
-        logger.error(
-            f"[Request Error] ID: {request_id}, Error: {str(e)}, Time: {process_time:.4f}s",
-            exc_info=True,
-        )
-        # 기본 오류 응답 반환 (FastAPI의 기본 Exception Handler가 처리하도록 re-raise)
-        raise e
+
+        try:
+            response = await call_next(request)
+            process_time = time.time() - start_time
+            # 응답이 StreamingResponse인 경우 헤더 추가 불가
+            if not isinstance(response, Response):
+                # StreamingResponse 등 헤더 설정이 불가능한 경우 로그만 남김
+                pass
+            elif hasattr(response, "headers"):
+                response.headers["X-Request-ID"] = request_id
+
+            status_code = (
+                response.status_code if hasattr(response, "status_code") else "N/A"
+            )
+            logger.info(
+                f"[Request End] ID: {request_id}, Status: {status_code}, Time: {process_time:.4f}s"
+            )
+            return response
+        except Exception as e:
+            process_time = time.time() - start_time
+            logger.error(
+                f"[Request Error] ID: {request_id}, Error: {str(e)}, Time: {process_time:.4f}s",
+                exc_info=True,
+            )
+            raise e
 
 
-# 2. 세션 미들웨어 (규칙 4.5)
+# --- 미들웨어 등록 (순서 중요! 역순으로 등록됨: 마지막 추가된 것이 가장 먼저 실행) ---
+
+# 4. 인증 예외 처리 미들웨어 제거
+# app.add_middleware(AuthExceptionMiddleware)
+
+# 3. 로깅 미들웨어
+app.add_middleware(LoggingMiddleware)
+
+# 2. 세션 미들웨어
+# GAE 환경에서는 HTTPS 강제, 로컬에서는 HTTP 허용
+is_production = os.getenv("GAE_ENV", "").startswith("standard")
+logger.info(
+    f"환경 감지: {'프로덕션(GAE)' if is_production else '로컬/개발'} - HTTPS 강제: {is_production}"
+)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
-    max_age=settings.SESSION_EXPIRE_HOURS * 60 * 60,  # 시간 단위를 초 단위로 변환
-    https_only=False,  # 로컬 테스트 및 GAE 환경 고려 (GAE가 TLS 처리)
+    max_age=settings.SESSION_EXPIRE_HOURS * 60 * 60,
+    https_only=is_production,  # 프로덕션에서만 HTTPS 강제
     same_site="lax",
+    session_cookie="session",
 )
 
-# 3. CORS 미들웨어 (규칙 4.3)
-# 주의: 실제 배포 시에는 ALLOWED_ORIGINS를 더 엄격하게 설정해야 합니다.
+# 1. CORS 미들웨어 (가장 안쪽)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        settings.ALLOWED_ORIGINS if settings.ALLOWED_ORIGINS else ["*"]
-    ),  # .env 설정이 없을 경우 모든 출처 허용 (개발 편의용, 배포시 수정)
+    allow_origins=(settings.ALLOWED_ORIGINS if settings.ALLOWED_ORIGINS else ["*"]),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- 라우터 포함 ---
-# 주의: 라우터 파일 내부에 APIRouter 인스턴스가 'router' 변수명으로 정의되어 있어야 합니다.
-from main.routes import auth_route, dashboard_route, handover_route, users_route
 
-app.include_router(auth_route.router, prefix="/auth", tags=["Authentication"])
-app.include_router(dashboard_route.router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(handover_route.router, prefix="/handover", tags=["Handover"])
-app.include_router(users_route.router, prefix="/users", tags=["Users"])
+# --- 라우터 포함 (수정) ---
+# 각 라우터 파일에서 정의된 page_router, api_router, lock_router 등을 명시적으로 포함
+
+# 인증 라우터 (로그인/로그아웃)
+app.include_router(auth_route.router, tags=["Auth"])
+
+# 대시보드 라우터
+app.include_router(
+    dashboard_route.page_router, tags=["Dashboard Pages"]
+)  # 페이지 라우터
+app.include_router(dashboard_route.api_router, tags=["Dashboard API"])  # API 라우터
+
+# 엑셀 내보내기 라우터 (관리자 전용)
+app.include_router(excel_export.api_router, tags=["Excel Export API"])
+
+
+# 인수인계 라우터
+app.include_router(handover_route.page_router, tags=["Handover Pages"])  # 페이지 라우터
+app.include_router(handover_route.api_router, tags=["Handover API"])  # API 라우터
+
+# 사용자 관리 라우터
+app.include_router(users_route.page_router, tags=["User Admin Pages"])  # 페이지 라우터
+app.include_router(users_route.api_router, tags=["User Admin API"])  # API 라우터
+
+# 락 라우터 (handover_route에 정의된 lock_router 사용 가정)
+# TODO: lock_router가 handover_route 외 다른 곳에서도 필요한지 확인 필요
+# 만약 여러 곳에서 필요하다면 별도 lock_route.py 파일로 분리하는 것이 좋음
+# 여기서는 handover_route의 것을 사용한다고 가정
+app.include_router(handover_route.api_router, tags=["Lock API"])  # 락 API 라우터
 
 
 # --- 정적 파일 서빙 --- (규칙 4.3.1)
-# React 빌드 결과물 등 정적 파일을 '/main/static' 디렉토리에서 서빙합니다.
 # Dockerfile에서 해당 경로에 파일이 복사되도록 구성해야 합니다.
 # 경로 "/static"으로 접근
 app.mount("/static", StaticFiles(directory="main/static"), name="static")
@@ -146,17 +186,42 @@ async def root(request: Request):
     서비스 진입점.
     로그인 상태를 확인하여 로그인 페이지 또는 대시보드로 리다이렉션합니다.
     """
-    user = request.session.get("user")
-    if user:
-        # 로그인 상태이면 대시보드로 리다이렉션
-        logger.debug(
-            f"로그인 사용자 감지 ({user.get('user_id', 'N/A')}), 대시보드로 리다이렉션"
-        )
-        return RedirectResponse(url="/dashboard", status_code=302)
-    else:
-        # 로그아웃 상태이면 로그인 페이지 렌더링
-        logger.debug("로그아웃 상태 감지, 로그인 페이지 렌더링")
-        return templates.TemplateResponse("login.html", {"request": request})
+    try:
+        # SessionMiddleware가 먼저 실행되므로 request.session 직접 사용
+        user = request.session.get("user")
+        if user:
+            logger.info(
+                f"인증된 사용자 대시보드 리다이렉트: {user.get('user_id', 'N/A')}"
+            )
+            return RedirectResponse(
+                url="/dashboard", status_code=status.HTTP_303_SEE_OTHER
+            )
+        else:
+            logger.info("미인증 사용자 로그인 페이지 리다이렉트")
+            return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    except Exception as e:
+        # request.session 접근 자체에서 오류가 날 수도 있음 (매우 드묾)
+        logger.error(f"루트 경로 처리 중 오류 발생: {str(e)}", exc_info=True)
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# --- 글로벌 예외 핸들러 --- (401 처리 복구 및 수정)
+@app.exception_handler(status.HTTP_401_UNAUTHORIZED)
+async def unauthorized_exception_handler(request: Request, exc: HTTPException):
+    """
+    401 Unauthorized 에러를 처리하는 전역 예외 핸들러.
+    API 요청 여부와 관계없이 무조건 로그인 페이지로 리디렉션합니다.
+    """
+    path = request.url.path
+    detail = exc.detail if hasattr(exc, "detail") else "인증 필요 (상세 정보 없음)"
+
+    logger.info(
+        f"글로벌 401 핸들러: {path} (Detail: {detail}) -> 로그인 페이지 리디렉션"
+    )
+
+    # API/웹 구분 없이 무조건 로그인 페이지로 리디렉션
+    return_url = f"/login?return_to={request.url.path}"
+    return RedirectResponse(url=return_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 # --- Uvicorn 실행 (Dockerfile의 CMD와 연동) ---
@@ -164,7 +229,7 @@ if __name__ == "__main__":
     # Dockerfile의 CMD ["python", "main/main.py"] 실행을 위해
     # uvicorn 직접 실행 로직을 여기에 배치합니다.
     # 실제 GAE 배포 등에서는 gunicorn과 uvicorn worker를 사용할 수 있습니다.
-    logger.info(f"서버를 http://0.0.0.0:{settings.PORT} 에서 시작합니다.")
+    logging.info(f"서버를 http://0.0.0.0:{settings.PORT} 에서 시작합니다.")
     uvicorn.run(
         "main.main:app",
         host="0.0.0.0",

@@ -4,16 +4,17 @@
 
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, Form, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 import os
+import logging
+from datetime import datetime
 
 from main.utils.database import get_db
-from main.utils.security import delete_session, get_current_user
-from main.utils.logger import logger
+from main.utils.security import get_current_user
 from main.utils.config import get_settings
 from main.schema.auth_schema import LoginRequest, LoginResponse
-from main.service.auth_service import authenticate_user, create_user_session
+from main.service.auth_service import authenticate_user
 from main.core.templating import templates
 
 # 설정 로드
@@ -22,40 +23,36 @@ settings = get_settings()
 # 라우터 생성
 router = APIRouter()
 
-# 올바른 경로에서 get_session 임포트 (get_session 함수 존재 가정)
-# from backend.utils.security import get_session -> 수정
-try:
-    from main.utils.security import get_session
-except ImportError:
-    # get_session 함수가 없을 경우를 대비한 임시 처리 (실제 구현 확인 필요)
-    from main.utils.logger import logger  # logger 임포트 추가
 
-    logger.warning("main.utils.security 모듈에서 get_session 함수를 찾을 수 없습니다.")
-    get_session = None
-
-
-@router.get("/login")
+@router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """
     로그인 페이지 렌더링
-
-    이미 로그인된 경우 대시보드로 리다이렉션
     """
-    session_id = request.cookies.get("session_id")
+    # 함수 진입점 로깅
+    # logging.debug(f"login_page 시작: URL={request.url}")
 
-    if session_id and get_session:  # get_session 함수가 임포트되었는지 확인
-        try:
-            session_data = get_session(session_id)
-            if session_data:
-                return RedirectResponse(
-                    url="/dashboard", status_code=status.HTTP_303_SEE_OTHER
-                )
-        except Exception as e:
-            logger.warning(f"세션 확인 중 오류 발생: {e}")
-            pass
+    # return_to 파라미터가 있는 경우 템플릿에 전달
+    return_to = request.query_params.get("return_to", "/dashboard")
+
+    # 이미 로그인된 경우 return_to로 리다이렉션
+    if request.session.get("user"):
+        logging.info(
+            f"로그인된 사용자 리다이렉트: {request.session.get('user').get('user_id', 'N/A')}"
+        )
+        return RedirectResponse(url=return_to, status_code=status.HTTP_303_SEE_OTHER)
+
+    # 중간 포인트 로깅
+    # logging.debug(f"login_page 렌더링: return_to={return_to}")
 
     return templates.TemplateResponse(
-        "login.html", {"request": request, "debug": settings.DEBUG}
+        "login.html",
+        {
+            "request": request,
+            "debug": settings.DEBUG,
+            "return_to": return_to,
+            "current_year": datetime.now().year,  # 현재 연도 추가
+        },
     )
 
 
@@ -64,123 +61,112 @@ async def login(
     request: Request,
     response: Response,
     user_id: str = Form(...),
-    password: str = Form(...),
+    user_password: str = Form(...),
+    return_to: str = Form("/dashboard"),
     db: Session = Depends(get_db),
 ):
     """
-    로그인 처리 (폼 제출 방식)
-
-    성공 시 대시보드로 리다이렉션, 실패 시 에러 메시지와 함께 로그인 페이지 렌더링
+    로그인 처리 (폼 데이터 방식)
+    쿠키 기반 세션(SessionMiddleware) 사용
     """
-    authenticated, user_data = authenticate_user(db, user_id, password)
+    # 함수 진입점 로깅
+    logging.info(f"login 시작: 사용자 ID={user_id}, return_to={return_to}")
+
+    authenticated, user_data = authenticate_user(db, user_id, user_password)
 
     if not authenticated or not user_data:
+        # 중간 포인트 로깅 - 인증 실패
+        logging.warning(f"로그인 실패: 사용자 ID={user_id}")
+
         return templates.TemplateResponse(
             "login.html",
             {
                 "request": request,
                 "error": "사용자 ID 또는 비밀번호가 일치하지 않습니다.",
                 "debug": settings.DEBUG,
+                "return_to": return_to,
+                "current_year": datetime.now().year,  # 현재 연도 추가
             },
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    session_id = create_user_session(user_data)
-    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(
-        key="session_id",
-        value=session_id,
-        httponly=True,
-        max_age=settings.SESSION_EXPIRE_HOURS * 3600,
-        secure=not settings.DEBUG,
-        samesite="lax",
-    )
-    logger.info(f"로그인 성공 및 리다이렉션: 사용자 '{user_id}'")
-    return response
+    # 쿠키 기반 세션에 사용자 정보 저장
+    request.session["user"] = user_data
 
-
-@router.post("/login/api", response_model=LoginResponse)
-async def login_api(
-    request: LoginRequest, response: Response, db: Session = Depends(get_db)
-):
-    """
-    로그인 처리 (API 방식)
-
-    JSON 요청을 처리하고 JSON 응답 반환
-    """
-    authenticated, user_data = authenticate_user(db, request.user_id, request.password)
-
-    if not authenticated or not user_data:
-        return LoginResponse(
-            success=False,
-            message="사용자 ID 또는 비밀번호가 일치하지 않습니다.",
-        )
-
-    session_id = create_user_session(user_data)
-    response.set_cookie(
-        key="session_id",
-        value=session_id,
-        httponly=True,
-        max_age=settings.SESSION_EXPIRE_HOURS * 3600,
-        secure=not settings.DEBUG,
-        samesite="lax",
+    # 중간 포인트 로깅 - 로그인 성공
+    logging.info(
+        f"로그인 성공: 사용자 '{user_id}', 권한='{user_data.get('user_role')}'"
     )
 
-    logger.info(f"API 로그인 성공: 사용자 '{request.user_id}'")
-
-    return LoginResponse(
-        success=True,
-        message="로그인 성공",
-        userId=user_data.get("user_id"),
-        userRole=user_data.get("user_role"),
-        userDepartment=user_data.get("user_department"),
-    )
+    return RedirectResponse(url=return_to, status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/logout")
-async def logout(request: Request, response: Response):
+@router.get("/logout")
+async def logout(request: Request):
     """
     로그아웃 처리
-
-    세션을 삭제하고 로그인 페이지로 리다이렉션 또는 JSON 응답 반환
+    쿠키 기반 세션 제거
     """
-    session_id = request.cookies.get("session_id", "")
-    
-    # AJAX/API 요청인지 확인
-    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or \
-              request.headers.get("Accept") == "application/json"
+    # 함수 진입점 로깅
+    user_id = request.session.get("user", {}).get("user_id", "알 수 없음")
+    logging.info(f"logout 시작: 사용자 ID={user_id}")
 
-    if session_id:
-        delete_session(session_id)
-    
-    # 세션 쿠키 삭제
-    response_data = {"success": True, "message": "로그아웃 성공"}
-    
-    if is_ajax:
-        # AJAX 요청의 경우 JSON 응답
-        from fastapi.responses import JSONResponse
-        response = JSONResponse(content=response_data)
-        response.delete_cookie(key="session_id")
-        logger.info("로그아웃 성공 (AJAX)")
-        return response
-    else:
-        # 일반 요청의 경우 리다이렉션
-        response = RedirectResponse(
-            url="/auth/login", status_code=status.HTTP_303_SEE_OTHER
-        )
-        response.delete_cookie(key="session_id")
-        logger.info("로그아웃 성공 (리다이렉션)")
-        return response
+    # 쿠키 기반 세션 클리어
+    request.session.clear()
+
+    # 중간 포인트 로깅 - 로그아웃 성공
+    logging.info(f"로그아웃 성공: 사용자 ID={user_id}")
+
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/me")
-async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def get_me(request: Request):
     """
     현재 로그인된 사용자 정보 반환
     """
+    # 함수 진입점 로깅
+    # logging.debug(f"get_me 시작: IP={request.client.host}")
+
+    user = request.session.get("user")
+    if not user:
+        logging.warning(f"인증되지 않은 사용자 접근: IP={request.client.host}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="인증되지 않은 사용자입니다.",
+        )
+
+    # 중간 포인트 로깅 - 사용자 정보 반환
+    # logging.debug(f"사용자 정보 반환: 사용자 ID={user.get('user_id')}")
+
+    return user
+
+
+@router.get("/api/check-session")
+async def check_session(request: Request):
+    """
+    현재 세션 유효성 확인 API
+    클라이언트에서 주기적으로 호출하여 세션 상태를 확인합니다.
+    """
+    # 함수 진입점 로깅
+    # logging.debug(f"세션 체크 API 호출: IP={request.client.host}")
+
+    user = request.session.get("user")
+    if not user:
+        logging.info(f"세션 체크 실패: 세션 없음 (IP={request.client.host})")
+        return {"authenticated": False, "message": "세션이 만료되었습니다."}
+
+    # 세션이 유효한 경우 사용자 정보 반환 (민감한 정보 제외)
+    # logging.debug(
+    #     f"세션 체크 성공: 사용자={user.get('user_id')}, 권한={user.get('user_role')}"
+    # )
     return {
-        "success": True,
-        "userId": current_user.get("user_id"),
-        "userRole": current_user.get("user_role"),
-        "userDepartment": current_user.get("user_department"),
+        "authenticated": True,
+        "message": "세션이 유효합니다.",
+        "user": {
+            "user_id": user.get("user_id"),
+            "user_name": user.get("user_name"),
+            "user_role": user.get("user_role"),
+            "department": user.get("department"),
+        },
     }

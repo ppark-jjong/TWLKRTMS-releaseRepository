@@ -4,11 +4,29 @@ services:
       context: .
       dockerfile: ./Dockerfile
     image: teckwah-tms:latest
-    container_name: teckwah-tms
-    restart: none
+    container_name: teckwahkr-tms
+    restart: 'no'
     ports:
       - '8080:8080'
-    env_file:
-      - .env
     environment:
-      - TZ=Asia/Seoul
+      # 기본 설정
+      TZ: Asia/Seoul
+      DEBUG: 'False'
+      PORT: '8080'
+      ALLOWED_ORIGINS: 'http://localhost:8080' # 로컬 테스트용
+
+      # 데이터베이스 설정 - 로컬 DB 접근
+      MYSQL_HOST: 'host.docker.internal' # 로컬 MySQL 접근용
+      MYSQL_PORT: '3306'
+      MYSQL_USER: 'root'
+      MYSQL_PASSWORD: '1234'
+      MYSQL_DATABASE: 'delivery_system'
+      MYSQL_CHARSET: 'utf8mb4'
+
+      # 세션 설정
+      SESSION_SECRET: 'random_secret_key'
+      SESSION_EXPIRE_HOURS: '24'
+
+      # 락 설정
+      LOCK_TIMEOUT_SECONDS: '300'
+      LOCK_CLEANUP_INTERVAL_MINUTES: '10'

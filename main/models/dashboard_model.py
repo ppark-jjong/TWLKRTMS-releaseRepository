@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Index,
+    Computed,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -47,6 +48,13 @@ class Dashboard(Base):
         Enum("SEOUL", "BUSAN", "GWANGJU", "DAEJEON", name="dashboard_warehouse_enum"),
         nullable=False,
     )
+    # region 컬럼은 데이터베이스에서 GENERATED ALWAYS AS (CONCAT(city, ' ', county, ' ', district)) STORED 로 자동 생성됨
+    # SQLAlchemy에서는 자동 생성 컬럼은 그냥 선언만 함
+    region = Column(
+        String(153),
+        Computed("CONCAT(city, ' ', county, ' ', district)", persisted=True),
+        nullable=True,
+    )
     sla = Column(String(10), nullable=False)
     eta = Column(DateTime, nullable=False)
     create_time = Column(DateTime, nullable=False, default=func.now())
@@ -69,6 +77,8 @@ class Dashboard(Base):
     remark = Column(Text, nullable=True)
     update_at = Column(DateTime, nullable=True, onupdate=func.now())
     is_locked = Column(Boolean, default=False)
+    locked_by = Column(String(50), nullable=True)  # 락 소유자 ID
+    locked_at = Column(DateTime, nullable=True)  # 락 획득 시간
 
     # 관계 설정
     postal_code_obj = relationship("PostalCode", back_populates="dashboard_entries")

@@ -1,193 +1,169 @@
-{% extends "layout.html" %}
-
-{% block title %}사용자 관리 - TeckWahKRTMS{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/users.css">
-{% endblock %}
-
-{% block content %}
-<div class="users-container">
-    <h1 class="page-title">사용자 관리</h1>
-    
-    <div class="actions-bar">
-        <button type="button" class="action-btn create-btn" id="createUserBtn">
-            <i class="fas fa-plus"></i> 사용자 추가
-        </button>
+{% extends "base.html" %} {% block title %}사용자 관리 - TeckwahKR TMS{%
+endblock %} {% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/users.css') }}" />
+{% endblock %} {% block content %}
+<div class="users-page">
+  <div class="main-card">
+    <!-- 페이지 제목 -->
+    <div class="page-header">
+      <h2 class="page-title">사용자 관리</h2>
     </div>
 
-    <div class="table-container">
-        <table class="user-table" id="userTable">
-            <thead>
-                <tr>
-                    <th>아이디</th>
-                    <th>이름</th>
-                    <th>부서</th>
-                    <th>권한</th>
-                    <th>액션</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user_item in users %}
-                <tr data-id="{{ user_item.user_id }}">
-                    <td>{{ user_item.user_id }}</td>
-                    <td>{{ user_item.user_name }}</td>
-                    <td>{{ user_item.user_department }}</td>
-                    <td>
-                        <span class="role-badge {{ 'admin' if user_item.user_role == 'ADMIN' else 'user' }}">
-                            {{ '관리자' if user_item.user_role == 'ADMIN' else '일반사용자' }}
-                        </span>
-                    </td>
-                    <td class="action-cell">
-                        <button 
-                            class="action-btn delete-user-btn" 
-                            data-user-id="{{ user_item.user_id }}"
-                            title="사용자 삭제"
-                        >
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="no-data-cell">등록된 사용자 정보가 없습니다.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
+    <!-- 간소화된 필터 헤더 영역 -->
+    <div class="filter-bar">
+      <!-- 액션 버튼 영역 -->
+      <div class="actions-row">
+        <div class="section-title">
+          <i class="fa-solid fa-users-gear"></i>
+          <span>사용자 목록</span>
+        </div>
+        <div class="right-actions">
+          <button id="refreshBtn" class="btn secondary-btn">
+            <i class="fa-solid fa-arrows-rotate"></i> 새로고침
+          </button>
+          <button id="newUserBtn" class="btn primary-btn">
+            <i class="fa-solid fa-user-plus"></i> 신규 사용자 추가
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사용자 목록 테이블 -->
+    <div class="table-scroll-container">
+      <div class="table-container">
+        <table class="data-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>로그인 ID</th>
+              <th>부서</th>
+              <th>권한</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            {% for user in users %}
+            <tr>
+              <td>{{ user.user_id }}</td>
+              <td>{{ user.user_department }}</td>
+              <td>
+                <span
+                  class="role-badge {{ 'admin-role' if user.user_role == 'ADMIN' else 'user-role' }}"
+                >
+                  {{ '관리자' if user.user_role == 'ADMIN' else '일반 사용자' }}
+                </span>
+              </td>
+              <td class="action-cell">
+                <button
+                  class="btn-action delete-user"
+                  data-userid="{{ user.user_id }}"
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr class="empty-data-row">
+              <td colspan="4" class="empty-table">
+                <div class="empty-placeholder">
+                  <i class="fa-solid fa-users"></i>
+                  <p>사용자 데이터가 없습니다</p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
         </table>
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- 사용자 추가 모달 -->
-<div class="modal" id="createUserModal">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">사용자 추가</h2>
-                <button type="button" class="close-btn" id="closeCreateModalBtn">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="createUserForm" class="user-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="userId">사용자 ID *</label>
-                            <input type="text" id="userId" name="user_id" required />
-                        </div>
-                        <div class="form-group">
-                            <label for="userName">이름 *</label>
-                            <input type="text" id="userName" name="user_name" required />
-                        </div>
-                    </div>
+<!-- 신규 사용자 추가 다이얼로그 -->
+<div id="userFormDialog" class="dialog">
+  <div class="dialog-content">
+    <h3 id="dialogTitle">신규 사용자 추가</h3>
+    <form id="userForm">
+      <div class="form-group">
+        <label for="userId">로그인 ID <span class="required">*</span></label>
+        <input
+          type="text"
+          id="userId"
+          name="user_id"
+          class="input-field"
+          required
+        />
+      </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="userDepartment">부서 *</label>
-                            <select id="userDepartment" name="user_department" required>
-                                <option value="">선택하세요</option>
-                                {% for dept in departments %}
-                                <option value="{{ dept.value }}">{{ dept.label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="userRole">권한 *</label>
-                            <select id="userRole" name="user_role" required>
-                                <option value="USER">일반사용자</option>
-                                <option value="ADMIN">관리자</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="userPassword">비밀번호 *</label>
-                            <input type="password" id="userPassword" name="password" required />
-                        </div>
-                        <div class="form-group">
-                            <label for="userPasswordConfirm">비밀번호 확인 *</label>
-                            <input type="password" id="userPasswordConfirm" name="password_confirm" required />
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn secondary-btn" id="cancelUserBtn">
-                    취소
-                </button>
-                <button type="button" class="btn primary-btn" id="submitUserBtn">
-                    추가
-                </button>
-            </div>
+      <div class="form-group">
+        <label for="userPassword"
+          >비밀번호 <span class="required">*</span></label
+        >
+        <div class="password-input-container">
+          <input
+            type="password"
+            id="userPassword"
+            name="user_password"
+            class="input-field"
+            required
+          />
+          <button
+            type="button"
+            id="togglePasswordBtn"
+            class="toggle-password-btn"
+          >
+            <i class="fa-solid fa-eye"></i>
+          </button>
         </div>
-    </div>
-</div>
+      </div>
 
-<!-- 사용자 삭제 확인 모달 -->
-<div class="modal" id="deleteUserModal">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">사용자 삭제</h2>
-                <button type="button" class="close-btn" id="closeDeleteModalBtn">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>
-                    사용자 <span id="deleteUserIdDisplay" class="highlight"></span>을(를) 삭제하시겠습니까?
-                </p>
-                <p class="delete-warning">삭제된 사용자는 복구할 수 없습니다.</p>
-                <input type="hidden" id="deleteUserId" value="" />
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn secondary-btn" id="cancelDeleteBtn">
-                    취소
-                </button>
-                <button type="button" class="btn delete-btn" id="confirmDeleteBtn">
-                    삭제
-                </button>
-            </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="userDepartment"
+            >부서 <span class="required">*</span></label
+          >
+          <select
+            id="userDepartment"
+            name="user_department"
+            class="select-field"
+            required
+          >
+            <option value="CS">CS</option>
+            <option value="HES">HES</option>
+            <option value="LENOVO">LENOVO</option>
+          </select>
         </div>
-    </div>
-</div>
-{% endblock %}
+        <div class="form-group">
+          <label for="userRole">권한 <span class="required">*</span></label>
+          <select id="userRole" name="user_role" class="select-field" required>
+            <option value="USER">일반 사용자</option>
+            <option value="ADMIN">관리자</option>
+          </select>
+        </div>
+      </div>
 
-{% block extra_js %}
-<!-- 사용자 관리 페이지 JS 스크립트 -->
-<script>
-  console.log('[Users] 페이지 스크립트 로드 시작');
-  
-  // 스크립트 로더를 통해 필요한 모듈 로드
-  if (window.ScriptLoader) {
-    // 먼저 공통 모듈 로드
-    ScriptLoader.loadDependencies(
-      ScriptLoader.dependencies.common,
-      ['utils', 'api', 'auth', 'alerts', 'modal'],
-      function() {
-        console.log('[Users] 공통 모듈 로드 완료');
-        
-        // 이후 사용자 관리 모듈 로드
-        ScriptLoader.loadDependencies(
-          ScriptLoader.dependencies.page,
-          'users',
-          function() {
-            console.log('[Users] 사용자 관리 모듈 로드 완료');
-            
-            // 사용자 관리 초기화 (users.js의 init 함수 호출)
-            if (window.Users && typeof Users.init === 'function') {
-              Users.init();
-              console.log('[Users] 초기화 완료');
-            } else {
-              console.error('[Users] 사용자 관리 모듈이 올바르게 로드되지 않았습니다.');
-            }
-          }
-        );
-      }
-    );
-  } else {
-    console.error('[Users] 스크립트 로더를 찾을 수 없습니다.');
-  }
-</script>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary-btn" id="cancelUserBtn">
+          취소
+        </button>
+        <button type="submit" class="btn primary-btn" id="saveUserBtn">
+          저장
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 삭제 확인 다이얼로그 -->
+<div id="deleteConfirmDialog" class="dialog">
+  <div class="dialog-content">
+    <h3>사용자 삭제 확인</h3>
+    <p>정말로 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+    <div class="dialog-actions">
+      <button class="btn secondary-btn" id="cancelDeleteBtn">취소</button>
+      <button class="btn danger-btn" id="confirmDeleteBtn">삭제</button>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block page_js %}
+<script src="{{ url_for('static', path='js/users.js') }}"></script>
 {% endblock %}

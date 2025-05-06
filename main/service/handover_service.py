@@ -1,227 +1,267 @@
 """
-인수인계 관련 서비스 - 모델 필드명 일치하도록 수정
+인수인계 관련 서비스 - 리팩토링 버전
 """
 
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, and_, or_
+from sqlalchemy import desc
 from fastapi import HTTPException, status
+import logging
+from main.models.handover_model import Handover
+from main.utils.pagination import paginate_query
+from main.utils.lock import (
+    check_lock_status as check_common_lock_status,
+)  # 이름 충돌 방지
 
-from main.utils.logger import logger
-from main.models.handover_model import Handover  # 모델 임포트
+logger = logging.getLogger(__name__)
 
 
-def get_handover_list(
-    db: Session, 
-    page: int = 1, 
-    page_size: int = 10,
+def _handover_to_dict(handover: Handover) -> Dict[str, Any]:
+    """Handover 모델 객체를 API 응답용 딕셔너리로 변환 (ISO 8601 형식 사용)"""
+    return {
+        "handover_id": handover.handover_id,
+        "title": handover.title,
+        "content": handover.content,
+        "is_notice": handover.is_notice,
+        "department": handover.department,
+        "create_by": handover.create_by,
+        "create_at": handover.update_at.isoformat() if handover.update_at else None,
+        "update_by": handover.update_by,
+        "update_at": handover.update_at.isoformat() if handover.update_at else None,
+        "is_locked": handover.is_locked,
+        "locked_by": getattr(handover, "locked_by", None),
+        "locked_at": (
+            getattr(handover, "locked_at", None).isoformat()
+            if getattr(handover, "locked_at", None)
+            else None
+        ),
+    }
+
+
+def get_handover_list_paginated(
+    db: Session,
+    page: int = 1,
+    page_size: int = 30,
     is_notice: bool = False,
-    search_term: Optional[str] = None  # 파라미터는 유지하되 내부 로직에서 사용하지 않음
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """
-    인수인계 목록 조회 (페이지네이션)
-    
-    Args:
-        db: 데이터베이스 세션
-        page: 페이지 번호
-        page_size: 페이지 크기
-        is_notice: 공지사항 여부
-        search_term: 미사용 파라미터 (호환성 유지)
-        
-    Returns:
-        인수인계 목록과 페이지네이션 정보
-    """
+    """페이지네이션된 인수인계/공지 목록 조회"""
     try:
-        # 기본 쿼리 생성 
         query = db.query(Handover).filter(Handover.is_notice == is_notice)
-            
-        # 전체 건수 조회
-        total = query.count()
-        
-        # 페이지네이션 계산
-        total_pages = max(1, (total + page_size - 1) // page_size)  # 올림 나눗셈, 최소 1페이지
-        offset = (page - 1) * page_size
-        
-        # 인수인계 목록 조회 (최신순)
-        handovers = query\
-            .order_by(desc(Handover.update_at))\
-            .offset(offset)\
-            .limit(page_size)\
-            .all()
-            
-        # 응답 데이터 가공
-        handover_list = []
-        for handover in handovers:
-            handover_list.append({
-                "id": handover.handover_id,
-                "title": handover.title,
-                "content": handover.content,
-                "is_notice": handover.is_notice,
-                "writer_id": handover.update_by,
-                "update_at": handover.update_at.strftime("%Y-%m-%d %H:%M") if handover.update_at else None,
-            })
-            
-        # 페이지네이션 정보
-        pagination = {
-            "total": total,
-            "total_pages": total_pages,
-            "current": page,
-            "page_size": page_size
-        }
-        
-        return handover_list, pagination
-        
+        handovers_raw, pagination_info = paginate_query(
+            query.order_by(desc(Handover.update_at)), page, page_size
+        )
+        # 모델 객체 리스트를 딕셔너리 리스트로 변환
+        handover_list = [_handover_to_dict(h) for h in handovers_raw]
+        return handover_list, pagination_info
     except Exception as e:
-        logger.error(f"인수인계 목록 조회 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+        logger.error(f"페이지네이션 목록 조회 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="목록 조회 중 오류 발생")
+
+
+def get_handover_list_all(
+    db: Session, is_notice: Optional[bool] = None, department: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """전체 인수인계/공지 목록 조회 (is_notice가 None이면 전체)"""
+    try:
+        query = db.query(Handover)
+        if is_notice is not None:
+            # is_notice 값이 True 또는 False로 명시된 경우 필터링
+            query = query.filter(Handover.is_notice == is_notice)
+        if department is not None:
+            # department 값이 지정된 경우 필터링
+            query = query.filter(Handover.department == department)
+        # is_notice가 None이면 필터링 없이 전체 조회
+        all_handovers = query.order_by(desc(Handover.update_at)).all()
+        return [_handover_to_dict(h) for h in all_handovers]
+    except Exception as e:
+        logger.error(f"전체 목록 조회 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="목록 조회 중 오류 발생")
 
 
 def get_notice_list(
-    db: Session, 
-    page: int = 1, 
-    page_size: int = 5
+    db: Session, page: int = 1, page_size: int = 5
 ) -> List[Dict[str, Any]]:
-    """
-    공지사항 목록 조회 (is_notice=True)
-    """
-    try:
-        # 공지사항 목록 조회 (최신순)
-        handovers, _ = get_handover_list(db, page, page_size, is_notice=True)
-        return handovers
-    except Exception as e:
-        logger.error(f"공지사항 목록 조회 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+    """공지사항 목록 조회 (페이지네이션 적용)"""
+    notices, _ = get_handover_list_paginated(db, page, page_size, is_notice=True)
+    return notices
 
 
 def get_handover_by_id(db: Session, handover_id: int) -> Optional[Handover]:
-    """
-    인수인계 상세 조회
-    """
+    """ID로 인수인계 상세 조회 (모델 객체 반환)"""
     try:
-        handover = db.query(Handover).filter(Handover.handover_id == handover_id).first()
-        return handover
+        return db.query(Handover).filter(Handover.handover_id == handover_id).first()
     except Exception as e:
-        logger.error(f"인수인계 상세 조회 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+        logger.error(f"ID로 상세 조회 오류 ({handover_id}): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="데이터 조회 중 오류 발생")
 
 
 def create_handover(
-    db: Session, 
-    title: str, 
-    content: str, 
+    db: Session,
+    title: str,
+    content: str,
     is_notice: bool,
     writer_id: str,
-    writer_name: str = None  # 호환성을 위해 유지하되 사용하지 않음
+    department: str = "CS",
 ) -> Handover:
-    """
-    인수인계 생성
-    """
+    """인수인계 생성"""
+    logger.info(f"인수인계 생성 요청: 작성자={writer_id}, 제목='{title}'")
     try:
-        # 새 인수인계 생성
-        now = datetime.now()
+        # Handover 객체 생성 시 필수 필드 명시적 설정
         handover = Handover(
             title=title,
             content=content,
             is_notice=is_notice,
+            create_by=writer_id,
             update_by=writer_id,
-            update_at=now  # create_at 제거
+            update_at=datetime.now(),  # 명시적으로 현재 시간 설정
+            is_locked=False,  # 기본값 명시적 설정
+            locked_by=None,
+            locked_at=None,
+            department=department,
         )
-        
-        # DB에 저장
         db.add(handover)
-        db.commit()
-        db.refresh(handover)
-        
-        logger.info(f"인수인계 생성: ID {handover.handover_id}, 작성자 {writer_id}")
-        
+        db.flush()
+        logger.info(f"인수인계 생성 완료: ID={handover.handover_id}")
         return handover
     except Exception as e:
-        db.rollback()
-        logger.error(f"인수인계 생성 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+        logger.error(f"인수인계 생성 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="인수인계 생성 중 오류 발생")
 
 
 def update_handover(
-    db: Session, 
-    handover_id: int, 
-    title: str, 
-    content: str, 
-    is_notice: bool,
-    updated_by: str
+    db: Session,
+    handover_id: int,
+    update_data: Dict[str, Any],  # 수정할 데이터 딕셔너리
+    updated_by: str,
+    user_role: str,  # 권한 확인용
 ) -> Handover:
-    """
-    인수인계 수정 (행 단위 락 확인 포함)
-    """
-    from main.utils.lock import acquire_lock, release_lock
-    
-    # 락 획득 시도
-    lock_success, lock_info = acquire_lock(db, "handover", handover_id, updated_by)
-    
-    if not lock_success:
-        logger.warning(
-            f"인수인계 수정 실패 (락 획득 불가): ID {handover_id}, 사용자 {updated_by}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
-            detail="현재 다른 사용자가 이 인수인계를 편집 중입니다.",
-        )
-    
+    """인수인계 수정 (락 점검 및 권한 확인 포함)"""
+    lock_held = False
     try:
-        # 인수인계 조회
+        # 1. 락 상태 확인
+        lock_status = check_common_lock_status(db, "handover", handover_id, updated_by)
+        if not lock_status.get("success") or not lock_status.get("editable"):
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=lock_status.get(
+                    "message", "다른 사용자가 편집 중이거나 락 오류"
+                ),
+            )
+        lock_held = True
+
         handover = get_handover_by_id(db, handover_id)
-        
         if not handover:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="인수인계를 찾을 수 없습니다."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="수정할 인수인계를 찾을 수 없습니다.",
             )
-            
-        # 인수인계 정보 업데이트
-        handover.title = title
-        handover.content = content
-        handover.is_notice = is_notice
+
+        # 2. 수정 권한 확인 (작성자 또는 ADMIN)
+        if handover.create_by != updated_by and user_role != "ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 인수인계를 수정할 권한이 없습니다.",
+            )
+
+        # 3. 공지사항 변경 권한 확인 (ADMIN만 가능)
+        is_notice_new = update_data.get("is_notice")
+        if (
+            is_notice_new is not None
+            and is_notice_new != handover.is_notice
+            and user_role != "ADMIN"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="관리자만 공지사항 여부를 변경할 수 있습니다.",
+            )
+
+        # 4. 필드 업데이트 적용
+        for key, value in update_data.items():
+            setattr(handover, key, value)
+
+        # 공통 업데이트 정보
         handover.update_at = datetime.now()
         handover.update_by = updated_by
-        
-        # DB에 저장
-        db.commit()
-        db.refresh(handover)
-        
-        # 락 해제
-        release_lock(db, "handover", handover_id, updated_by)
-        
-        logger.info(f"인수인계 수정: ID {handover.handover_id}, 수정자 {updated_by}")
-        
+
+        db.flush()  # 변경사항 반영
+        logger.info(f"인수인계 수정 완료 (커밋 전): ID {handover.handover_id}")
         return handover
-    except HTTPException:
-        # HTTP 예외는 그대로 전달
-        raise
+
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        db.rollback()
-        logger.error(f"인수인계 수정 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+        logger.error(f"인수인계 수정 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="인수인계 수정 중 오류 발생")
+    finally:
+        # 락을 소유하고 시작했다면 작업 완료 후 해제 시도
+        if lock_held:
+            try:
+                from main.utils.lock import (
+                    release_lock,
+                )  # 순환 참조 피하기 위해 함수 내 임포트
+
+                release_lock(db, "handover", handover_id, updated_by)
+                logger.info(f"인수인계 수정 완료 후 락 해제: ID {handover_id}")
+            except Exception as lock_release_err:
+                logger.error(f"인수인계 수정 후 락 해제 실패: {lock_release_err}")
 
 
-def delete_handover(db: Session, handover_id: int) -> bool:
-    """
-    인수인계 삭제
-    """
+def delete_handover(
+    db: Session, handover_id: int, user_id: str, user_role: str
+) -> bool:
+    """인수인계 삭제 (락 점검 및 권한 확인 포함)"""
+    lock_held = False
     try:
-        # 인수인계 조회
+        # 1. 락 상태 확인
+        lock_status = check_common_lock_status(db, "handover", handover_id, user_id)
+        if not lock_status.get("success") or not lock_status.get("editable"):
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=lock_status.get(
+                    "message", "다른 사용자가 편집 중이거나 락 오류"
+                ),
+            )
+        lock_held = True
+
         handover = get_handover_by_id(db, handover_id)
-        
         if not handover:
-            return False
-            
-        # DB에서 삭제
+            # 락 확인 후 객체가 사라진 경우 (매우 드묾)
+            logger.warning(f"삭제할 인수인계({handover_id}) 찾을 수 없음 (락 확인 후)")
+            # 실패로 처리하거나, 이미 삭제된 것으로 간주하고 성공 처리 가능
+            return False  # 실패로 처리
+
+        # 2. 삭제 권한 확인 (작성자 또는 ADMIN)
+        if handover.create_by != user_id and user_role != "ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 인수인계를 삭제할 권한이 없습니다.",
+            )
+
         db.delete(handover)
-        db.commit()
-        
-        logger.info(f"인수인계 삭제: ID {handover_id}")
-        
+        db.flush()
+        logger.info(f"인수인계 삭제 완료 (커밋 전): ID {handover_id}")
         return True
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        db.rollback()
-        logger.error(f"인수인계 삭제 중 오류 발생: {str(e)}", exc_info=True)
-        raise e
+        logger.error(f"인수인계 삭제 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="인수인계 삭제 중 오류 발생")
+    finally:
+        # 락을 소유하고 시작했다면 작업 완료 후 해제 시도
+        if lock_held:
+            try:
+                from main.utils.lock import (
+                    release_lock,
+                )  # 순환 참조 피하기 위해 함수 내 임포트
+
+                release_lock(db, "handover", handover_id, user_id)
+                logger.info(f"인수인계 삭제 완료 후 락 해제 시도: ID {handover_id}")
+            except Exception as lock_release_err:
+                logger.warning(
+                    f"삭제된 인수인계 락 해제 실패 (예상 가능): {lock_release_err}"
+                )
+
+
+# check_handover_lock_status 함수 제거 (common 사용)
+# 이전 라우터 호환성을 위한 함수 제거

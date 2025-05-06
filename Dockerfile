@@ -12,11 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "Asia/Seoul" > /etc/timezone \
     && dpkg-reconfigure -f noninteractive tzdata
 
-# 환경 변수 파일 복사
-COPY .env ./
-
-# Python 종속성 설치
-COPY main/requirements.txt ./
+# Python 종속성 설치 - 루트 디렉토리의 requirements.txt 사용
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 백엔드 소스 코드 복사
@@ -41,5 +38,6 @@ ENV PYTHONPATH=/app
 
 # 컨테이너가 시작될 때 실행할 명령
 CMD ["python", "-m", "main.main"]
+
 # 헬스체크용 포트 노출
 EXPOSE 8080

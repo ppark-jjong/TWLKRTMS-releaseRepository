@@ -1,0 +1,247 @@
+{% extends "base.html" %} {% block title %}주문 상세 - TeckwahKR TMS{% endblock
+%} {% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/orders.css') }}" />
+{% endblock %} {% block content %}
+<div class="order-detail-page">
+  <!-- 헤더 부분 -->
+  <div class="page-header">
+    <h1 class="page-title">
+      <i class="fa-solid fa-truck-fast"></i>
+      주문 상세 정보
+    </h1>
+    <div class="header-actions">
+      <a href="/dashboard" class="btn secondary-btn">
+        <i class="fa-solid fa-arrow-left"></i>
+        목록으로
+      </a>
+      {% if order.editable %}
+      <a href="/orders/{{ order.dashboard_id }}/edit" class="btn primary-btn">
+        <i class="fa-solid fa-edit"></i>
+        수정
+      </a>
+      {% endif %} {% if current_user and current_user.user_role == 'ADMIN' %}
+      <form
+        action="/api/orders/{{ order.dashboard_id }}/delete"
+        method="POST"
+        style="display: inline"
+        onsubmit="return confirm('정말로 이 주문을 삭제하시겠습니까?');"
+      >
+        <button type="submit" class="btn danger-btn">
+          <i class="fa-solid fa-trash"></i>
+          삭제
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="lockNotificationArea" class="mb-3"></div>
+  <div id="notificationArea" class="mb-3"></div>
+
+  <div class="main-card">
+    <div class="order-detail-content">
+      <div class="order-detail-columns">
+        <!-- 왼쪽 컬럼 -->
+        <div class="detail-column">
+          <!-- 기본 정보 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">
+              <i class="fa-solid fa-info-circle"></i>
+              기본 정보
+            </div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">주문번호</span>
+                <div class="copyable-value">
+                  <span class="detail-value" id="detailOrderNo"
+                    >{{ order.order_no }}</span
+                  >
+                  <button
+                    id="copyOrderNo"
+                    class="copy-btn"
+                    onclick="Utils.dom.copyToClipboard('{{ order.order_no }}')"
+                  >
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">상태</span>
+                <div class="field-with-edit">
+                  <span
+                    class="status-badge status-{{ order.status|lower }}"
+                    id="statusDisplay"
+                    >{{ order.status_label }}</span
+                  >
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">고객</span>
+                <span class="detail-value">{{ order.customer }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">유형</span>
+                <span class="detail-value">{{ order.type_label }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">부서</span>
+                <span class="detail-value">{{ order.department }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">창고</span>
+                <span class="detail-value">{{ order.warehouse }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">SLA</span>
+                <span class="detail-value">{{ order.sla }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">우편번호</span>
+                <span class="detail-value">{{ order.postal_code }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 배송 정보 섹션 (첫 부분) -->
+          <div class="order-detail-section">
+            <div class="section-title">
+              <i class="fa-solid fa-truck"></i>
+              배송 정보
+            </div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">ETA</span>
+                <span class="detail-value">{{ order.eta|datetime }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">생성 시간</span>
+                <span class="detail-value"
+                  >{{ order.create_time|datetime }}</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">출발 시간</span>
+                <span class="detail-value"
+                  >{% if order.depart_time %}{{ order.depart_time|datetime }}{%
+                  else %}-{% endif %}</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">완료 시간</span>
+                <span class="detail-value"
+                  >{% if order.complete_time %}{{ order.complete_time|datetime
+                  }}{% else %}-{% endif %}</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">거리</span>
+                <span class="detail-value"
+                  >{% if order.distance is not none %}{{ order.distance }} km{%
+                  else %}데이터 없음{% endif %}</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">예상 소요시간</span>
+                <span class="detail-value"
+                  >{% if order.duration_time is not none %}{{
+                  order.duration_time }} 분{% else %}데이터 없음{% endif
+                  %}</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 오른쪽 컬럼 -->
+        <div class="detail-column">
+          <!-- 배송 및 연락처 정보 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">
+              <i class="fa-solid fa-map-location-dot"></i>
+              배송 및 연락처 정보
+            </div>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">배송기사</span>
+                <div class="field-with-edit">
+                  <span id="driverNameDisplay"
+                    >{% if order.driver_name and order.driver_name != 'None' %}{{ order.driver_name }}{% else
+                    %}-{% endif %}</span
+                  >
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">배송기사 연락처</span>
+                <div class="field-with-edit">
+                  <span id="driverContactDisplay"
+                    >{% if order.driver_contact and order.driver_contact != 'None' %}{{ order.driver_contact }}{%
+                    else %}-{% endif %}</span
+                  >
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">지역</span>
+                <span class="detail-value"
+                  >{% if order.region %}{{ order.region }}{% else %}데이터
+                  없음{% endif %}</span
+                >
+              </div>
+              <div class="detail-item full-width">
+                <span class="detail-label">배송주소</span>
+                <span class="detail-value">{{ order.address }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">연락처</span>
+                <span class="detail-value"
+                  >{% if order.contact and order.contact != 'None' %}{{ order.contact }}{% else %}-{% endif
+                  %}</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- 메모 섹션 -->
+          <div class="order-detail-section">
+            <div class="section-title">
+              <i class="fa-solid fa-note-sticky"></i>
+              메모
+            </div>
+            <div class="remark-container">
+              <span class="detail-value"
+                >{% if order.remark and order.remark != 'None' %}{{ order.remark }}{% else %}-{% endif
+                %}</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 업데이트 정보 푸터 -->
+      <div class="order-footer">
+        <div class="update-info">
+          <div class="update-item">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span class="update-label">업데이트:</span>
+            <span class="update-value"
+              >{% if order.update_time %}{{ order.update_time|datetime }}{% else
+              %}-{% endif %}</span
+            >
+          </div>
+          <div class="update-item">
+            <i class="fa-solid fa-user-edit"></i>
+            <span class="update-label">수정자:</span>
+            <span class="update-value">{{ order.update_by or '-' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block page_js %}
+<script id="page-data-script" type="application/json">
+  {{ {'order': order, 'lock_status': lock_status, 'current_user_role': current_user.user_role}|tojson|safe }}
+</script>
+
+{# 분리된 order_detail.js 파일 로드 #}
+<script src="{{ url_for('static', path='js/order_detail.js') }}"></script>
+{% endblock %}

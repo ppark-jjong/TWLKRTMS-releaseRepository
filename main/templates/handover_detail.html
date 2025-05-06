@@ -1,0 +1,179 @@
+{% extends "base.html" %} {% block title %}인수인계 상세 - TeckwahKR TMS{%
+endblock %} {% block page_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/handover.css') }}"
+/>
+<style>
+  /* 상세 페이지 추가 스타일 */
+  .handover-detail-page {
+    padding-bottom: 2rem;
+  }
+
+  .handover-detail-content {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  }
+
+  .page-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .page-title {
+    display: flex;
+    align-items: center;
+    font-size: 1.5rem;
+    margin: 0;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .handover-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .content-area {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    white-space: pre-line;
+  }
+
+  /* 삭제 다이얼로그 스타일 */
+  .dialog {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .dialog.active {
+    display: flex;
+  }
+
+  .dialog-content {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="handover-detail-page" data-handover-id="{{ handover.handover_id }}">
+  <div class="page-header">
+    <h1 class="page-title">{{ handover.type_label }} 상세 정보</h1>
+    <div class="header-actions">
+      <a href="/handover" class="btn secondary-btn"> 목록으로 </a>
+      {% if handover.editable %}
+      <a
+        href="/handover/{{ handover.handover_id }}/edit"
+        class="btn primary-btn"
+      >
+        수정
+      </a>
+      <button id="deleteHandoverBtn" class="btn danger-btn">삭제</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="main-card">
+    <div class="handover-detail-content">
+      {# 디버그 정보: 페이지 상단에 주석으로 표시 #}
+      <!-- 
+      DEBUG INFO:
+      handover.handover_id: {{ handover.handover_id }}
+      handover.is_notice: {{ handover.is_notice }}
+      handover.title: {{ handover.title }}
+      handover.type_label: {{ handover.type_label }}
+      -->
+
+      <div class="handover-header">
+        <div class="handover-title-section">
+          <div class="handover-tags">
+            <span
+              class="tag {{ 'notice-tag' if handover.is_notice else 'handover-tag' }}"
+            >
+              {{ '공지사항' if handover.is_notice else '인수인계' }}
+            </span>
+          </div>
+          <h2 class="handover-title">{{ handover.title }}</h2>
+        </div>
+
+        <div class="handover-meta">
+          <div class="meta-item">
+            <span class="meta-label">작성자:</span>
+            <span class="meta-value">{{ handover.create_by }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">최종 수정자:</span>
+            <span class="meta-value">{{ handover.update_by }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">작성/수정일시:</span>
+            <span class="meta-value">{{ handover.update_at|datetime }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">부서:</span>
+            <span class="meta-value">{{ handover.department }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="handover-content">
+        <div class="content-area">{{ handover.content|safe }}</div>
+      </div>
+
+      <div class="handover-footer">
+        <!-- 확인 목록 섹션 제거됨 -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 삭제 확인 다이얼로그 -->
+<div id="deleteConfirmDialog" class="dialog">
+  <div class="dialog-content">
+    <h3>삭제 확인</h3>
+    <p>
+      정말로 이 {{ handover.type_label }}을(를) 삭제하시겠습니까? 이 작업은
+      되돌릴 수 없습니다.
+    </p>
+    <div class="dialog-actions">
+      <button class="btn secondary-btn" id="cancelDeleteBtn">취소</button>
+      <form
+        action="/api/handover/{{ handover.handover_id }}/delete"
+        method="POST"
+        id="deleteHandoverForm"
+      >
+        <button type="submit" class="btn danger-btn">삭제</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block page_js %}
+<script src="{{ url_for('static', path='js/handover_detail.js') }}"></script>
+{% endblock %}

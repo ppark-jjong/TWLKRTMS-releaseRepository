@@ -1,0 +1,335 @@
+{% extends "base.html" %} {% block title %}{% if handover %}인수인계 수정{% else
+%}인수인계 작성{% endif %} - TeckwahKR TMS{% endblock %} {% block page_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/handover.css') }}"
+/>
+<style>
+  /* 폼 스타일 개선 */
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+  }
+  
+  .required {
+    color: #dc3545;
+    margin-left: 4px;
+  }
+  
+  .input-field,
+  .select-field,
+  .text-area {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  }
+  
+  .input-field:focus,
+  .select-field:focus,
+  .text-area:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+  
+  .text-area {
+    min-height: 200px;
+    resize: vertical;
+  }
+  
+  /* 섹션 스타일 */
+  .section-title {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 1.25rem;
+    color: #212529;
+  }
+  
+  /* 작성/수정 폼 페이지 스타일 */
+  .handover-form-page .main-card {
+    max-width: 800px;
+    margin: 0 auto 2rem;
+  }
+  
+  .handover-form {
+    padding: 1.5rem;
+  }
+  
+  /* 부서 선택 필드 강조 */
+  .department-select-container {
+    position: relative;
+  }
+  
+  .department-select-container::after {
+    content: '';
+    position: absolute;
+    top: 70%;
+    right: 1rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    border-width: 6px 6px 0 6px;
+    border-style: solid;
+    border-color: #495057 transparent transparent transparent;
+  }
+  
+  /* 공지사항 체크박스 강조 스타일 */
+  .notice-checkbox-container {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0 1.5rem;
+    padding: 1rem 1.25rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+  
+  .notice-checkbox-container:hover {
+    background-color: #e9ecef;
+  }
+  
+  .notice-checkbox {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.75rem;
+    cursor: pointer;
+  }
+  
+  .notice-label {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+  }
+  
+  .notice-label .tooltip {
+    margin-left: 0.75rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: normal;
+    opacity: 0.8;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="handover-form-page">
+  <div class="page-header">
+    <h1 class="page-title">
+      {% if handover %}인수인계 수정{% else %}신규 인수인계 작성{% endif %}
+    </h1>
+    <div class="header-actions">
+      <a
+        href="{% if handover %}/handover/{{ handover.handover_id }}{% else %}/handover{% endif %}"
+        class="btn secondary-btn"
+      >
+        취소
+      </a>
+      <button
+        type="submit"
+        form="handoverForm"
+        class="btn primary-btn"
+        id="submitBtn"
+      >
+        <span>{% if handover %}저장하기{% else %}등록하기{% endif %}</span>
+      </button>
+    </div>
+  </div>
+
+  {% if error_message %}
+  <div class="alert alert-danger">
+    {{ error_message }}
+  </div>
+  {% endif %} {% if success_message %}
+  <div class="alert alert-success">
+    {{ success_message }}
+  </div>
+  {% endif %}
+
+  <div class="main-card">
+    <form
+      id="handoverForm"
+      action="{% if handover %}/api/handover/{{ handover.handover_id }}/update{% else %}/api/handover/create{% endif %}"
+      method="POST"
+      class="handover-form two-column-form"
+    >
+      {% if handover %}
+      <input type="hidden" name="_method" value="PUT" />
+      <input
+        type="hidden"
+        name="handover_id"
+        value="{{ handover.handover_id }}"
+      />
+      {% endif %}
+
+      <div class="form-section">
+        <h3 class="section-title">{% if handover %}인수인계 수정{% else %}인수인계 작성{% endif %}</h3>
+        
+        {# 공지사항 체크박스 - 관리자만 표시 #}
+        {% if can_create_notice %}
+        <div class="form-group">
+          <div class="notice-checkbox-container">
+            <input
+              type="checkbox"
+              id="is_notice"
+              name="is_notice"
+              value="true"
+              class="notice-checkbox"
+              {% if handover and handover.is_notice %}checked{% endif %}
+            />
+            <!-- 체크되지 않았을 때 전송될 히든 필드 -->
+            <input
+              type="hidden"
+              name="is_notice"
+              value="false"
+              id="is_notice_hidden"
+            />
+            <label for="is_notice" class="notice-label">
+              공지사항으로 등록
+              <span class="tooltip">관리자만 공지사항 등록이 가능합니다</span>
+            </label>
+          </div>
+        </div>
+        {% else %}
+        <input
+          type="hidden"
+          name="is_notice"
+          value="{{ 'true' if handover and handover.is_notice else 'false' }}"
+        />
+        {% endif %}
+        
+        <div class="form-group">
+          <label for="title">제목 <span class="required">*</span></label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            class="input-field"
+            placeholder="제목을 입력하세요"
+            required
+            value="{{ handover.title if handover else '' }}"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="department">부서 <span class="required">*</span></label>
+          <div class="department-select-container">
+            <select
+              id="department"
+              name="department"
+              class="select-field"
+              required
+            >
+              <option value="CS" {% if handover and handover.department == 'CS' %}selected{% endif %}>CS</option>
+              <option value="HES" {% if handover and handover.department == 'HES' %}selected{% endif %}>HES</option>
+              <option value="LENOVO" {% if handover and handover.department == 'LENOVO' %}selected{% endif %}>LENOVO</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="content">내용 <span class="required">*</span></label>
+          <textarea
+            id="content"
+            name="content"
+            class="text-area"
+            rows="12"
+            required
+            placeholder="내용을 입력하세요"
+          >{{ handover.content if handover else '' }}</textarea>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %} {% block page_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // 폼 제출 시 로딩 표시
+    const form = document.getElementById("handoverForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    if (form && submitBtn) {
+      form.addEventListener("submit", function () {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '처리 중...';
+      });
+    }
+
+    // 공지사항 체크박스 처리
+    const noticeCheckbox = document.getElementById("is_notice");
+    const hiddenField = document.getElementById("is_notice_hidden");
+
+    if (noticeCheckbox && hiddenField) {
+      // 체크박스 초기 상태에 따라 히든 필드 비활성화/활성화
+      if (noticeCheckbox.checked) {
+        hiddenField.disabled = true;
+      }
+
+      // 체크박스 변경 이벤트 처리
+      noticeCheckbox.addEventListener("change", function() {
+        if (this.checked) {
+          // 체크된 경우 히든 필드 비활성화 (값 전송되지 않도록)
+          hiddenField.disabled = true;
+          // 공지사항 true로 설정
+        } else {
+          // 체크 해제된 경우 히든 필드 활성화 (false 값 전송)
+          hiddenField.disabled = false;
+          // 공지사항 false로 설정
+        }
+      });
+    }
+
+    // 페이지 나갈 때 락 해제
+    {% if handover and is_edit %}
+    const handoverId = "{{ handover.handover_id }}";
+
+    if (handoverId) {
+      // 페이지 이탈 시 락 해제 함수
+      const releaseLock = async () => {
+        try {
+          // 락 해제 API 호출 (브라우저 캐시 방지용 랜덤 파라미터 추가)
+          const response = await fetch(`/api/handover/${handoverId}/release-lock?_=${Date.now()}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+
+          await response.text(); // 락 해제 요청 완료
+        } catch (error) {
+          // 락 해제 중 오류 발생
+        }
+      };
+
+      // 페이지 이탈 이벤트에 락 해제 연결
+      window.addEventListener('beforeunload', releaseLock);
+
+      // 취소 버튼 클릭 시에도 락 해제
+      const cancelBtn = document.querySelector('.secondary-btn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function(e) {
+          // 기본 이벤트 방지 (href 이동 전에 락 해제 실행)
+          e.preventDefault();
+
+          // 락 해제 후 페이지 이동
+          releaseLock().then(() => {
+            window.location.href = this.getAttribute('href');
+          });
+        });
+      }
+    }
+    {% endif %}
+  });
+</script>
+{% endblock %}

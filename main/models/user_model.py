@@ -19,7 +19,17 @@ class User(Base):
     )
     user_role = Column(Enum("ADMIN", "USER", name="user_role_enum"), nullable=False)
 
-    # 관계 설정
-    handovers = relationship(
-        "Handover", back_populates="user", cascade="all, delete-orphan"
+    created_handovers = relationship(
+        "Handover",
+        foreign_keys="[Handover.create_by]",
+        back_populates="creator",
+        cascade="all, delete-orphan",
+    )
+
+    # 인수인계 수정자 관계
+    updated_handovers = relationship(
+        "Handover",
+        foreign_keys="[Handover.update_by]",
+        back_populates="updater",
+        cascade="all, delete-orphan",
     )

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}TeckwahKR TMS{% endblock %}</title>
+
+    <!-- 파비콘 -->
+    <link
+      rel="icon"
+      href="{{ url_for('static', path='images/favicon.ico') }}"
+      type="image/x-icon"
+    />
+
+    <!-- 기본 스타일시트 -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/base.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/layout.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/components.css') }}"
+    />
+
+    <!-- 폰트어썸 -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    />
+
+    <!-- Flatpickr 달력 라이브러리 추가 -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css"
+    />
+
+    <!-- 페이지별 CSS -->
+    {% block page_css %}{% endblock %}
+  </head>
+  <body>
+    <div class="app">
+      <!-- 레이아웃 -->
+      <div class="main-layout">
+        <!-- 사이드바 -->
+        <aside class="sidebar">
+          <div class="logo-container">
+            <!-- 사이드바 토글 버튼 - 로고명 왼쪽으로 이동 -->
+            <button
+              class="sidebar-toggle"
+              id="sidebarToggleBtn"
+              aria-label="사이드바 토글"
+              title="사이드바 접기/펼치기"
+            >
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <h1 class="system-title">TWLKR-TMS</h1>
+          </div>
+
+          <!-- 숨겨진 사용자 정보 컨테이너 (JavaScript에서 사용) -->
+          <div
+            id="userInfo"
+            class="hidden"
+            data-user-id="{{ current_user.user_id if current_user else '' }}"
+            data-user-role="{{ current_user.user_role if current_user else '' }}"
+            data-department="{{ current_user.user_department if current_user else '' }}"
+          ></div>
+
+          <div class="user-info">
+            <div class="user-details">
+              <p class="user-id" id="userDisplayId">
+                <span class="user-id-label">ID:</span> {{ current_user.user_id
+                if current_user else '로그인 필요' }} {% if current_user and
+                current_user.user_role %}
+                <span
+                  class="user-role-badge {{ 'admin' if current_user.user_role == 'ADMIN' else 'user' }}"
+                >
+                  {{ current_user.user_role }}
+                </span>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+
+          <nav class="menu">
+            <ul>
+              <li
+                class="menu-item {% if request.url.path == '/dashboard' or request.url.path.startswith('/orders') %}active{% endif %}"
+              >
+                <a href="/dashboard">
+                  <i class="fa-solid fa-chart-line"></i>
+                  <span>TMS</span>
+                </a>
+              </li>
+              <li
+                class="menu-item {% if request.url.path.startswith('/handover') %}active{% endif %}"
+              >
+                <a href="/handover">
+                  <i class="fa-solid fa-right-left"></i>
+                  <span>Work-Notice</span>
+                </a>
+              </li>
+              {% if current_user and current_user.user_role == 'ADMIN' %}
+              <li
+                class="menu-item {% if request.url.path.startswith('/admin/users') %}active{% endif %}"
+              >
+                <a href="/admin/users">
+                  <i class="fa-solid fa-users"></i>
+                  <span>User Management</span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
+
+          <div class="logout-container">
+            <button id="logoutBtn" class="logout-btn">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>로그아웃</span>
+            </button>
+          </div>
+
+          <!-- 사이드바 하단 로고 -->
+          <div class="sidebar-footer">
+            <img
+              src="{{ url_for('static', path='images/logo.png') }}"
+              alt="Teckwah 로고"
+              class="footer-logo"
+            />
+          </div>
+        </aside>
+
+        <!-- 메인 컨텐츠 -->
+        <main class="main-content">
+          <!-- 컨텐츠 영역 -->
+          <div class="content-container content-full-width">
+            <!-- 페이지별 컨텐츠 -->
+            {% block content %}{% endblock %}
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- 알림 메시지 컴포넌트 -->
+    <div class="message-popup" id="messagePopup">
+      <div class="message-content">
+        <i class="fa-solid message-icon"></i>
+        <span class="message-text"></span>
+      </div>
+    </div>
+
+    <!-- 세션 만료 대화상자 -->
+    <div id="sessionExpiredDialog" class="dialog">
+      <div class="dialog-content">
+        <h3>세션 만료 알림</h3>
+        <p>
+          로그인 세션이 만료되었습니다. 다시 로그인해야 계속 사용할 수 있습니다.
+        </p>
+        <div class="dialog-actions">
+          <button id="sessionLoginBtn" class="btn primary-btn">
+            로그인 페이지로 이동
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공통 JavaScript - 코어 유틸리티 라이브러리 -->
+    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
+
+    <!-- 공통 애플리케이션 스크립트 -->
+    <script src="{{ url_for('static', path='js/base.js') }}"></script>
+    <script src="{{ url_for('static', path='js/layout.js') }}"></script>
+
+    <!-- Flatpickr 달력 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+
+    <!-- 페이지별 JavaScript -->
+    {% block page_js %}{% endblock %}
+  </body>
+</html>

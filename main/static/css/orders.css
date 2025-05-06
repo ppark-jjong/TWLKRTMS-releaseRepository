@@ -1,0 +1,250 @@
+/* 주문 관련 페이지 스타일 */
+
+/* 주문 상세 페이지 */
+.order-detail-content {
+  padding: var(--spacing-lg);
+}
+
+.order-detail-columns {
+  display: flex;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.detail-column {
+  flex: 1;
+  min-width: 300px;
+}
+
+/* 주문 상세 정보 섹션 */
+.order-detail-section {
+  margin-bottom: var(--spacing-lg);
+  background-color: white;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.section-title {
+  padding: var(--spacing-md);
+  background-color: var(--background-color-light);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.section-title i {
+  color: var(--primary-color);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-color-secondary);
+}
+
+.detail-value {
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+}
+
+/* 메모 영역 */
+.remark-container {
+  padding: var(--spacing-md);
+  background-color: var(--background-color-light);
+  border-radius: var(--border-radius-sm);
+  min-height: 100px;
+  white-space: pre-line;
+  margin: 0 var(--spacing-md) var(--spacing-md);
+}
+
+/* 주문 푸터 - 업데이트 정보 */
+.order-footer {
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-md);
+  background-color: var(--background-color-light);
+}
+
+.update-info {
+  display: flex;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.update-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-item i {
+  color: var(--primary-color);
+  font-size: var(--font-size-sm);
+}
+
+.update-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-color-secondary);
+}
+
+.update-value {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+/* 주문 상세 페이지 전용 스타일 */
+.order-detail-content {
+  /* 상세 페이지에만 패딩 적용 */
+  padding: var(--spacing-lg);
+}
+
+/* 주문 폼 관련 스타일 */
+.order-form {
+  padding: var(--spacing-lg);
+}
+
+.form-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-section .section-title {
+  /* 폼 섹션 제목 스타일 */
+  padding: var(--spacing-sm) 0; /* 상하 패딩, 좌우 0 */
+  background-color: transparent; /* 배경 제거 */
+  border-bottom: 1px solid var(--border-color); /* 하단 선 유지 */
+  margin-bottom: var(--spacing-md);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .order-detail-columns {
+    flex-direction: column;
+  }
+
+  .detail-column {
+    width: 100%;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .update-info {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+}
+
+/* Helper for hidden fields/sections */
+.hidden-field {
+  display: none !important;
+}
+
+/* Two Column Layout using Grid */
+.two-column-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Two equal columns */
+  gap: 1rem; /* Spacing between columns and rows */
+}
+
+.two-column-form .form-group-full-width {
+  grid-column: 1 / -1; /* Span across both columns */
+}
+
+/* Adjustments for smaller screens */
+@media (max-width: 768px) {
+  .two-column-form .form-grid {
+    grid-template-columns: 1fr; /* Single column on smaller screens */
+  }
+}
+
+/* Update Info Section */
+.update-info-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.update-info-section .section-title {
+  margin-bottom: 1rem;
+}
+
+.update-info-section .form-control-static {
+  padding-top: 0.375rem; /* Align with input fields */
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive adjustments if needed */
+/* ... */
+
+.field-with-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+}
+
+/* Input with inline button */
+.input-with-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-button .input-field {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.inline-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9em;
+  height: 36px;
+  white-space: nowrap;
+}
+
+.inline-btn:hover {
+  background-color: var(--primary-color-dark);
+}
+
+.inline-btn:active {
+  transform: translateY(1px);
+}
