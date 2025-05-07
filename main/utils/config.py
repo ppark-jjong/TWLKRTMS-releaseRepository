@@ -46,8 +46,8 @@ class Settings:
         # 데이터베이스 설정
         self.MYSQL_HOST = os.getenv("MYSQL_HOST", "10.54.192.10")
         self.MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-        self.MYSQL_USER = os.getenv("MYSQL_USER", "root")
-        self.MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "Teckwah0206@")
+        self.MYSQL_USER = os.getenv("MYSQL_USER", "teckwahkr-user")
+        self.MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "Teckwah0206")
         self.MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "delivery_system")
         self.MYSQL_CHARSET = os.getenv("MYSQL_CHARSET", "utf8mb4")
 
@@ -82,27 +82,39 @@ class Settings:
         logger.info("=============================")
 
     # DB 연결 문자열 - GAE 프로덕션 환경 전용
+    # 로깅 중복 방지용 플래그
+    _db_url_logged = False
+    
     @property
     def DATABASE_URL(self) -> str:
+        """
+        데이터베이스 연결 URL 생성
+        명시적인 IP 주소를 사용하여 DNS 관련 문제 방지
+        """
         # 사용자 이름과 비밀번호 URL 인코딩
         try:
             # 기본 연결 방식 사용 (URL 인코딩 없이 시도)
             user = self.MYSQL_USER
             password = self.MYSQL_PASSWORD
+            # 명시적 IP 주소 사용 (DNS 대신)
+            host = self.MYSQL_HOST  # 현재 10.54.192.10
+            
+            # 로깅은 최초 1회만 수행
+            if not Settings._db_url_logged:
+                # 디버깅을 위한 로깅 추가
+                logger.info(f"DB 연결 정보 - MYSQL_USER: '{user}'")
+                logger.info(
+                    f"DB 연결 정보 - MYSQL_PASSWORD 설정 여부: {'YES' if password else 'NO'}"
+                )
+                logger.info(f"DB 연결 정보 - MYSQL_HOST: '{host}' (명시적 IP 사용)")
 
-            # 디버깅을 위한 로깅 추가
-            logger.info(f"DB 연결 정보 - MYSQL_USER: '{user}'")
-            logger.info(
-                f"DB 연결 정보 - MYSQL_PASSWORD 설정 여부: {'YES' if password else 'NO'}"
-            )
-            logger.info(f"DB 연결 정보 - MYSQL_HOST: '{self.MYSQL_HOST}'")
-
-            # 마스킹된 URL 로깅
-            masked_url = f"mysql+pymysql://{user}:{'*****'}@{self.MYSQL_HOST}/{self.MYSQL_DATABASE}?charset={self.MYSQL_CHARSET}"
-            logger.info(f"생성된 DB 연결 URL(마스킹됨): {masked_url}")
+                # 마스킹된 URL 로깅
+                masked_url = f"mysql+pymysql://{user}:{'*****'}@{host}/{self.MYSQL_DATABASE}?charset={self.MYSQL_CHARSET}"
+                logger.info(f"생성된 DB 연결 URL(마스킹됨): {masked_url}")
+                Settings._db_url_logged = True
 
             # 단순화된 연결 문자열
-            return f"mysql+pymysql://{user}:{password}@{self.MYSQL_HOST}/{self.MYSQL_DATABASE}?charset={self.MYSQL_CHARSET}"
+            return f"mysql+pymysql://{user}:{password}@{host}/{self.MYSQL_DATABASE}?charset={self.MYSQL_CHARSET}"
         except Exception as e:
             # 예외 발생시 상세 로깅
             logger.error(f"DB 연결 URL 생성 중 오류 발생: {str(e)}")
