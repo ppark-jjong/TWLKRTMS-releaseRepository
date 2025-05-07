@@ -49,7 +49,7 @@ flowchart TD
     subgraph GCP
         CA["Cloud Armor / TLS"]
         FW["Firewall Allow‑list"]
-        GAE["GAE Flex (Docker Container)"]
+        GAE["GAE"]
         Log["Logging & Monitoring"]
         SQL["Cloud SQL (MySQL 8.0)"]
         CA --> FW --> GAE --> Log
@@ -69,39 +69,6 @@ flowchart TD
 | **Logging**         | No PII stored; unified JSON schema `{success, error_code, message}`                         |
 
 ### 2‑3. Deployment Pipeline
-<<<<<<< HEAD
-=======
-
-1. Build a single **Dockerfile** and deploy with `gcloud app deploy` (GAE Flex).
-2. Manage secrets and configuration through environment variables.
-3. For local development, connect to Cloud SQL via **Cloud SQL Auth Proxy**.
-
----
-
-## 3. Key Features (User Perspective)
-
-### 3‑1. Dashboard
-
-- **Real‑time delivery order list**
-  ![스크린샷 2025-04-29 140553](https://github.com/user-attachments/assets/92c132a8-9a72-4cd9-bf37-03c30e0e789e)
-
-- **Create new delivery orders**
-  ![스크린샷 2025-04-29 140601](https://github.com/user-attachments/assets/e6b1a63b-da94-48cf-b888-2a3551d7d448)
-
-- **Assign couriers and update delivery status (for dispatch operators)**
-  ![스크린샷 2025-04-29 140643](https://github.com/user-attachments/assets/e7d3d3bb-962c-4d5e-9bb2-8542e79bb34e)
-  ![스크린샷 2025-04-29 140624](https://github.com/user-attachments/assets/06f6ef94-788f-4702-9206-b39fd6b29888)
-
-- **View detailed order information**
-  ![스크린샷 2025-04-29 140607](https://github.com/user-attachments/assets/461ec753-4693-477d-84d2-4287a0923782)
-
-- **Basic data visualizations (e.g., order volumes, courier workload)**
-  ![스크린샷 2025-04-29 140734](https://github.com/user-attachments/assets/28ce2a44-cfe4-4da4-a1bd-cf899976191c)
-
----
-
-> For questions or suggestions, please open an issue in the **Issues** tab.
->>>>>>> origin/main
 
 1. Build a single **Dockerfile** and deploy with `gcloud app deploy` (GAE Flex).
 2. Manage secrets and configuration through environment variables.

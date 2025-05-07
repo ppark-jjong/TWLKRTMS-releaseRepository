@@ -17,16 +17,25 @@ settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
-# 환경에 따른 데이터베이스 연결 정보 로깅
-logger.info("=== 데이터베이스 설정 확인 ===")
-logger.info(f"MYSQL_HOST: {settings.MYSQL_HOST}")
-logger.info(f"MYSQL_PORT: {settings.MYSQL_PORT}")
-logger.info(f"MYSQL_DATABASE: {settings.MYSQL_DATABASE}")
-logger.info(f"GAE_ENV: {os.getenv('GAE_ENV', '없음')}")
-logger.info(
-    f"연결 URL 패턴: mysql+pymysql://[user]@{settings.MYSQL_HOST}{'/' if os.getenv('GAE_ENV', '').startswith('standard') else ':' + str(settings.MYSQL_PORT) + '/'}{settings.MYSQL_DATABASE}"
-)
-logger.info("===========================")
+# 최초 1회만 디버깅을 위한 정보 로깅 (로깅 중복 감소)
+_connection_logged = False
+
+def log_db_connection_info():
+    global _connection_logged
+    if not _connection_logged:
+        logger.info("=== 데이터베이스 설정 확인 ===")
+        logger.info(f"MYSQL_HOST: {settings.MYSQL_HOST}")
+        logger.info(f"MYSQL_PORT: {settings.MYSQL_PORT}")
+        logger.info(f"MYSQL_DATABASE: {settings.MYSQL_DATABASE}")
+        logger.info(f"GAE_ENV: {os.getenv('GAE_ENV', '없음')}")
+        logger.info(
+            f"연결 URL 패턴: mysql+pymysql://[user]@{settings.MYSQL_HOST}{'/' if os.getenv('GAE_ENV', '').startswith('standard') else ':' + str(settings.MYSQL_PORT) + '/'}{settings.MYSQL_DATABASE}"
+        )
+        logger.info("===========================")
+        _connection_logged = True
+
+# 최초 1회 로깅
+log_db_connection_info()
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(
@@ -44,12 +53,19 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# 데이터베이스 연결 테스트
+# 데이터베이스 연결 테스트 (최초 1회만 실행되도록)
+_db_connection_tested = False
+
 def test_db_connection():
     """
     데이터베이스 연결을 간단히 테스트하고 결과 로그를 남깁니다.
     프로젝트 규칙에 따라 최초 한 번만 시도합니다.
     """
+    global _db_connection_tested
+    if _db_connection_tested:
+        logger.debug("데이터베이스 연결 테스트 이미 수행됨. 중복 실행 방지.")
+        return True
+    
     from sqlalchemy import text
     import socket
 
@@ -60,93 +76,67 @@ def test_db_connection():
         # 환경 정보 로깅
         is_gae = os.getenv("GAE_ENV", "").startswith("standard")
         logger.info(f"환경: {'GAE 프로덕션' if is_gae else '로컬/개발'}")
-        logger.info(f"호스트 IP: {socket.gethostbyname(socket.gethostname())}")
-
-        # 상세 연결 정보 로깅
+        
+        # 상세 연결 정보 로깅 (축소)
         logger.info(f"연결 대상: {settings.MYSQL_HOST}:{settings.MYSQL_PORT}")
         logger.info(f"데이터베이스: {settings.MYSQL_DATABASE}")
-        logger.info(f"사용자: {settings.MYSQL_USER}")
-        logger.info(
-            f"비밀번호 길이: {len(settings.MYSQL_PASSWORD) if settings.MYSQL_PASSWORD else 0}"
-        )
 
-        # 연결 URL 로깅 (비밀번호 마스킹)
-        safe_url = settings.DATABASE_URL.replace(settings.MYSQL_PASSWORD, "******")
-        logger.info(f"생성된 연결 URL: {safe_url}")
-
-        # 먼저 IP 주소로 연결 가능한지 소켓으로 확인 (MySQL 서버까지 네트워크 연결 가능성 확인)
+        # 실제 데이터베이스 연결 시도 (간소화된 로직)
+        logger.info("데이터베이스 연결 시도...")
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)  # 5초 타임아웃
-            result = sock.connect_ex((settings.MYSQL_HOST, settings.MYSQL_PORT))
-            sock.close()
-
-            if result == 0:
-                logger.info(
-                    f"소켓 테스트: {settings.MYSQL_HOST}:{settings.MYSQL_PORT}에 연결 가능"
-                )
-            else:
-                logger.warning(
-                    f"소켓 테스트: {settings.MYSQL_HOST}:{settings.MYSQL_PORT}에 연결 불가 (오류코드: {result})"
-                )
-        except Exception as sock_err:
-            logger.warning(f"소켓 연결 테스트 실패: {str(sock_err)}")
-
-        # 실제 데이터베이스 연결 시도
-        logger.info("SQLAlchemy로 데이터베이스 연결 시도...")
-        with engine.connect() as conn:
-            # MySQL 버전 확인
-            result = conn.execute(text("SELECT VERSION()"))
-            version = result.fetchone()[0]
-
-            # 현재 사용자 확인
-            result = conn.execute(text("SELECT CURRENT_USER()"))
-            current_user = result.fetchone()[0]
-
-            logger.info(f"데이터베이스 연결 성공!")
+            # 직접 pymysql로 연결 시도 (저수준)
+            import pymysql
+            conn = pymysql.connect(
+                host=settings.MYSQL_HOST,
+                user=settings.MYSQL_USER,
+                password=settings.MYSQL_PASSWORD,
+                database=settings.MYSQL_DATABASE,
+                port=settings.MYSQL_PORT,
+                connect_timeout=5,
+                charset='utf8mb4'
+            )
+            
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT VERSION()")
+                version = cursor.fetchone()[0]
+                cursor.execute("SELECT CURRENT_USER()")
+                current_user = cursor.fetchone()[0]
+            
+            logger.info(f"데이터베이스 직접 연결 성공!")
             logger.info(f"MySQL 버전: {version}")
             logger.info(f"연결된 사용자: {current_user}")
+            conn.close()
+            
+            # SQLAlchemy 연결도 확인
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT 1"))
+                sqlalchemy_result = result.fetchone()[0]
+                
+            logger.info(f"SQLAlchemy 연결 성공: {sqlalchemy_result}")
             logger.info("=====================================================")
-
+            
+            _db_connection_tested = True
             return True
+        except Exception as direct_err:
+            logger.error(f"직접 연결 실패: {str(direct_err)}")
+            raise
+            
     except Exception as e:
         logger.error("=====================================================")
         logger.error(f"데이터베이스 연결 실패: {str(e)}")
 
-        # 오류 메시지에서 'Access denied' 문자열 확인
+        # 간단한 오류 메시지 (축소됨)
         error_msg = str(e).lower()
         if "access denied" in error_msg:
             logger.error("원인: MySQL 사용자 접근 권한 문제")
-            logger.error("해결 방법:")
-            logger.error("1. Cloud SQL에서 다음 SQL 명령어로 사용자 권한 설정:")
-            logger.error(
-                "   CREATE USER 'teckwahkr-db'@'%' IDENTIFIED BY 'teckwah0206';"
-            )
-            logger.error(
-                "   GRANT ALL PRIVILEGES ON delivery_system.* TO 'teckwahkr-db'@'%';"
-            )
-            logger.error("   FLUSH PRIVILEGES;")
-
-            # 오류 메시지에서 실제 IP 주소 추출 시도
-            import re
-
-            ip_match = re.search(r"'([^']*)'@'([^']*)'", error_msg)
-            if ip_match:
-                connecting_ip = ip_match.group(2)
-                logger.error(
-                    f"2. 연결 시도 IP: {connecting_ip} - 이 IP에 대한 권한이 필요합니다."
-                )
-
-        # 연결 URL 부분 마스킹 (비밀번호 제외)
-        parts = settings.DATABASE_URL.split("@")
-        if len(parts) > 1:
-            masked_url = f"...@{parts[1]}"
-            logger.error(f"사용된 연결 URL: {masked_url}")
-
-        logger.error(f"설정된 DB 호스트: {settings.MYSQL_HOST}:{settings.MYSQL_PORT}")
-        logger.error(f"설정된 DB 이름: {settings.MYSQL_DATABASE}")
+        elif "connect" in error_msg and "timeout" in error_msg:
+            logger.error("원인: 연결 타임아웃 - 방화벽 또는 VPC 설정 확인 필요")
+        elif "unknown host" in error_msg:
+            logger.error("원인: 알 수 없는 호스트 - IP 주소가 올바른지 확인하세요")
+        
         logger.error("=====================================================")
 
+        _db_connection_tested = True  # 실패해도 중복 실행 방지를 위해 플래그 설정
         return False
 
 
@@ -154,6 +144,7 @@ def test_db_connection():
 # 여기서는 별도로 초기화하지 않고 함수만 제공합니다.
 
 
+# 세션 로깅 레벨을 DEBUG로 변경하여 일반 로그에서는 표시되지 않도록 함
 # FastAPI의 Depends와 함께 사용하기 위한 의존성 함수
 def get_db() -> Generator[Session, None, None]:
     """
@@ -164,16 +155,18 @@ def get_db() -> Generator[Session, None, None]:
 
     # 각 세션 요청에 고유 ID 부여하여 추적
     session_id = str(uuid.uuid4())[:8]
-    logger.info(f"DB 세션 시작 [세션ID: {session_id}]")
+    # DEBUG 레벨로 변경하여 일반 INFO 로그에서는 표시되지 않게 함
+    logger.debug(f"DB 세션 시작 [세션ID: {session_id}]")
 
     db = SessionLocal()
     try:
-        logger.info(f"DB 세션 생성 완료 [세션ID: {session_id}]")
+        logger.debug(f"DB 세션 생성 완료 [세션ID: {session_id}]") 
         yield db
         db.commit()
-        logger.info(f"DB 트랜잭션 커밋 완료 [세션ID: {session_id}]")
+        logger.debug(f"DB 트랜잭션 커밋 완료 [세션ID: {session_id}]")
     except Exception as e:
         db.rollback()
+        # 오류는 여전히 ERROR 레벨로 로깅
         logger.error(f"DB 트랜잭션 롤백: {str(e)} [세션ID: {session_id}]")
         # 오류 세부 정보 기록
         import traceback
@@ -184,7 +177,7 @@ def get_db() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
-        logger.info(f"DB 세션 종료 [세션ID: {session_id}]")
+        logger.debug(f"DB 세션 종료 [세션ID: {session_id}]")
 
 
 # 트랜잭션 관리 데코레이터
