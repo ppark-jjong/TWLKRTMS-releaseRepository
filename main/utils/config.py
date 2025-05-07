@@ -44,10 +44,10 @@ class Settings:
         self.ALLOWED_ORIGINS = parse_comma_separated_list(origins_env)
 
         # 데이터베이스 설정
-        self.MYSQL_HOST = os.getenv("MYSQL_HOST", "10.54.192.10")
+        self.MYSQL_HOST = os.getenv("MYSQL_HOST", "10.22.176.3")
         self.MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
         self.MYSQL_USER = os.getenv("MYSQL_USER", "teckwahkr-user")
-        self.MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "Teckwah0206")
+        self.MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "teckwah0206")
         self.MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "delivery_system")
         self.MYSQL_CHARSET = os.getenv("MYSQL_CHARSET", "utf8mb4")
 
@@ -84,7 +84,7 @@ class Settings:
     # DB 연결 문자열 - GAE 프로덕션 환경 전용
     # 로깅 중복 방지용 플래그
     _db_url_logged = False
-    
+
     @property
     def DATABASE_URL(self) -> str:
         """
@@ -98,7 +98,7 @@ class Settings:
             password = self.MYSQL_PASSWORD
             # 명시적 IP 주소 사용 (DNS 대신)
             host = self.MYSQL_HOST  # 현재 10.54.192.10
-            
+
             # 로깅은 최초 1회만 수행
             if not Settings._db_url_logged:
                 # 디버깅을 위한 로깅 추가
