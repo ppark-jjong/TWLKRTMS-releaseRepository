@@ -59,6 +59,7 @@ def authenticate_user(
         # 인증 성공 시 사용자 정보 구성
         user_data = {
             "user_id": user.user_id,
+            "user_name": user.user_name,
             "user_role": user.user_role,
             "user_department": user.user_department,
         }

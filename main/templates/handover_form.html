@@ -236,6 +236,23 @@
           </div>
         </div>
 
+        {# 상태 필드 추가 (수정 시에만 표시, 작성자/ADMIN만 활성화) #}
+        {% if handover %}
+        <div class="form-group">
+          <label for="status">상태 <span class="required">*</span></label>
+          <select
+            id="status"
+            name="status"
+            class="select-field"
+            required
+            {% if handover.create_by != current_user.user_id and current_user.user_role != 'ADMIN' %}disabled{% endif %}
+          >
+            <option value="OPEN" {% if handover.status == 'OPEN' %}selected{% endif %}>OPEN</option>
+            <option value="CLOSE" {% if handover.status == 'CLOSE' %}selected{% endif %}>CLOSE</option>
+          </select>
+        </div>
+        {% endif %}
+
         <div class="form-group">
           <label for="content">내용 <span class="required">*</span></label>
           <textarea
@@ -254,10 +271,23 @@
 {% endblock %} {% block page_js %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    // 폼 제출 시 로딩 표시
+    // 폼 요소 및 데이터 가져오기
     const form = document.getElementById("handoverForm");
     const submitBtn = document.getElementById("submitBtn");
+    const isEditMode = {{ handover is not none | tojson }}; // Jinja 변수를 JSON으로 변환
+    const handoverId = "{{ handover.handover_id if handover else '' }}";
+    const currentVersion = "{{ handover.version if handover else '1' }}"; // 버전 정보 가져오기
+    
+    // 수정 모드일 때 버전 히든 필드 추가
+    if (isEditMode && form) {
+        const versionInput = document.createElement('input');
+        versionInput.type = 'hidden';
+        versionInput.name = 'version';
+        versionInput.value = currentVersion;
+        form.appendChild(versionInput);
+    }
 
+    // 폼 제출 시 로딩 표시
     if (form && submitBtn) {
       form.addEventListener("submit", function () {
         submitBtn.disabled = true;
@@ -289,47 +319,23 @@
       });
     }
 
-    // 페이지 나갈 때 락 해제
-    {% if handover and is_edit %}
-    const handoverId = "{{ handover.handover_id }}";
-
-    if (handoverId) {
-      // 페이지 이탈 시 락 해제 함수
-      const releaseLock = async () => {
-        try {
-          // 락 해제 API 호출 (브라우저 캐시 방지용 랜덤 파라미터 추가)
-          const response = await fetch(`/api/handover/${handoverId}/release-lock?_=${Date.now()}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-
-          await response.text(); // 락 해제 요청 완료
-        } catch (error) {
-          // 락 해제 중 오류 발생
+    // --- 페이지 로드 시 버전 경고 확인 --- 
+    const urlParams = new URLSearchParams(window.location.search);
+    const warningMsg = urlParams.get('warning');
+    if (warningMsg) {
+        const notificationArea = document.querySelector('.main-card'); 
+        if (notificationArea) {
+             const alertDiv = document.createElement('div');
+             alertDiv.className = 'alert alert-warning';
+             alertDiv.style.marginBottom = '1rem';
+             alertDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>${decodeURIComponent(warningMsg)}</strong> 저장된 내용을 확인하세요.`;
+             const existingAlert = notificationArea.querySelector('.alert-warning');
+             if (existingAlert) existingAlert.remove();
+             notificationArea.prepend(alertDiv);
+             urlParams.delete('warning');
+             history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
         }
-      };
-
-      // 페이지 이탈 이벤트에 락 해제 연결
-      window.addEventListener('beforeunload', releaseLock);
-
-      // 취소 버튼 클릭 시에도 락 해제
-      const cancelBtn = document.querySelector('.secondary-btn');
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function(e) {
-          // 기본 이벤트 방지 (href 이동 전에 락 해제 실행)
-          e.preventDefault();
-
-          // 락 해제 후 페이지 이동
-          releaseLock().then(() => {
-            window.location.href = this.getAttribute('href');
-          });
-        });
-      }
     }
-    {% endif %}
   });
 </script>
 {% endblock %}

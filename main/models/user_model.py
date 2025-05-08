@@ -13,6 +13,7 @@ class User(Base):
     __tablename__ = "user"
 
     user_id = Column(String(50), primary_key=True, index=True)
+    user_name = Column(String(50), nullable=False)
     user_password = Column(String(255), nullable=False)
     user_department = Column(
         Enum("CS", "HES", "LENOVO", name="user_department_enum"), nullable=False
@@ -32,4 +33,12 @@ class User(Base):
         foreign_keys="[Handover.update_by]",
         back_populates="updater",
         cascade="all, delete-orphan",
+    )
+
+    # 대시보드(주문) 수정자 관계 추가
+    updated_dashboards = relationship(
+        "Dashboard",
+        foreign_keys="[Dashboard.update_by]",
+        back_populates="updater",
+        # cascade 설정은 Dashboard의 update_by가 NULL 허용이므로 불필요할 수 있음
     )

@@ -78,6 +78,14 @@
             <option value="LENOVO">LENOVO</option>
           </select>
         </div>
+        <div class="filter-item">
+          <label for="statusFilter">상태</label>
+          <select id="statusFilter" class="filter-select">
+            <option value="all">전체</option>
+            <option value="OPEN">OPEN</option>
+            <option value="CLOSE">CLOSE</option>
+          </select>
+        </div>
         {# 필요시 다른 필터 추가 가능 #}
       </div>
 
@@ -110,20 +118,22 @@
       <div class="table-container">
         <table class="data-table" id="handoverTable">
           <thead id="handoverTableHead">
+            {# JS에서 동적으로 생성하므로 비워두거나, 초기 로딩 표시용으로 유지
+            가능 #} {# 예: 초기 로딩 헤더 (JS 로드 전 표시) #}
             <tr>
-              <th class="col-id">#</th>
-              <th class="col-title">제목</th>
-              <th class="col-type">구분</th>
-              <th class="col-dept">부서</th>
-              <th class="col-date sortable-header" data-sort="update_at">
-                최종수정일 <i class="fa-solid fa-sort-down"></i>
-              </th>
-              <th class="col-writer">작성자</th>
+              <th>제목</th>
+              <th>구분</th>
+              <th>부서</th>
+              <th>생성일시</th>
+              <th>최종수정일</th>
+              <th>상태</th>
+              <th>작성자</th>
             </tr>
           </thead>
           <tbody id="handoverTableBody">
             <tr class="initial-loading-row">
-              <td colspan="6" class="empty-table">
+              <td colspan="7" class="empty-table">
+                {# colspan 7로 수정 #}
                 <div class="empty-placeholder">
                   <i class="fa-solid fa-spinner fa-spin"></i>
                   <p>데이터를 로딩 중입니다...</p>

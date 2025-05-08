@@ -13,10 +13,12 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Computed,
+    text,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from main.utils.database import Base
+from main.models.user_model import User
 
 
 class Dashboard(Base):
@@ -73,15 +75,17 @@ class Dashboard(Base):
     contact = Column(String(20), nullable=True)
     driver_name = Column(String(153), nullable=True)
     driver_contact = Column(String(50), nullable=True)
-    update_by = Column(String(50), nullable=True)  # 락을 소유한 사용자 ID
+    update_by = Column(String(50), ForeignKey("user.user_id"), nullable=True)
     remark = Column(Text, nullable=True)
     update_at = Column(DateTime, nullable=True, onupdate=func.now())
-    is_locked = Column(Boolean, default=False)
-    locked_by = Column(String(50), nullable=True)  # 락 소유자 ID
-    locked_at = Column(DateTime, nullable=True)  # 락 획득 시간
+    version = Column(Integer, nullable=False, server_default=text("1"))
+    delivery_company = Column(
+        Enum("로얄", "서경", "택화", name="delivery_company_enum"), nullable=True
+    )
 
     # 관계 설정
     postal_code_obj = relationship("PostalCode", back_populates="dashboard_entries")
+    updater = relationship("User", foreign_keys=[update_by])
 
     # 인덱스 설정 (init-db.sql에 언급된 인덱스 추가)
     __table_args__ = (

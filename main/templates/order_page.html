@@ -35,7 +35,6 @@
     </div>
   </div>
 
-  <div id="lockNotificationArea" class="mb-3"></div>
   <div id="notificationArea" class="mb-3"></div>
 
   <div class="main-card">
@@ -165,8 +164,8 @@
                 <span class="detail-label">배송기사</span>
                 <div class="field-with-edit">
                   <span id="driverNameDisplay"
-                    >{% if order.driver_name and order.driver_name != 'None' %}{{ order.driver_name }}{% else
-                    %}-{% endif %}</span
+                    >{% if order.driver_name and order.driver_name != 'None'
+                    %}{{ order.driver_name }}{% else %}-{% endif %}</span
                   >
                 </div>
               </div>
@@ -174,10 +173,17 @@
                 <span class="detail-label">배송기사 연락처</span>
                 <div class="field-with-edit">
                   <span id="driverContactDisplay"
-                    >{% if order.driver_contact and order.driver_contact != 'None' %}{{ order.driver_contact }}{%
-                    else %}-{% endif %}</span
+                    >{% if order.driver_contact and order.driver_contact !=
+                    'None' %}{{ order.driver_contact }}{% else %}-{% endif
+                    %}</span
                   >
                 </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">배송사</span>
+                <span class="detail-value"
+                  >{{ order.delivery_company or '-' }}</span
+                >
               </div>
               <div class="detail-item">
                 <span class="detail-label">지역</span>
@@ -193,8 +199,8 @@
               <div class="detail-item">
                 <span class="detail-label">연락처</span>
                 <span class="detail-value"
-                  >{% if order.contact and order.contact != 'None' %}{{ order.contact }}{% else %}-{% endif
-                  %}</span
+                  >{% if order.contact and order.contact != 'None' %}{{
+                  order.contact }}{% else %}-{% endif %}</span
                 >
               </div>
             </div>
@@ -208,8 +214,8 @@
             </div>
             <div class="remark-container">
               <span class="detail-value"
-                >{% if order.remark and order.remark != 'None' %}{{ order.remark }}{% else %}-{% endif
-                %}</span
+                >{% if order.remark and order.remark != 'None' %}{{ order.remark
+                }}{% else %}-{% endif %}</span
               >
             </div>
           </div>
@@ -230,7 +236,7 @@
           <div class="update-item">
             <i class="fa-solid fa-user-edit"></i>
             <span class="update-label">수정자:</span>
-            <span class="update-value">{{ order.update_by or '-' }}</span>
+            <span class="update-value">{{ order.updater_name or '-' }}</span>
           </div>
         </div>
       </div>
@@ -239,7 +245,7 @@
 </div>
 {% endblock %} {% block page_js %}
 <script id="page-data-script" type="application/json">
-  {{ {'order': order, 'lock_status': lock_status, 'current_user_role': current_user.user_role}|tojson|safe }}
+  {{ {'order': order, 'current_user_role': current_user.user_role}|tojson|safe }}
 </script>
 
 {# 분리된 order_detail.js 파일 로드 #}

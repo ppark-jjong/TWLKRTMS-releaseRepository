@@ -2,7 +2,17 @@
 인수인계 모델 - init-db.sql 스키마와 정확히 일치하도록 수정됨
 """
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Enum,
+    text,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from main.utils.database import Base
@@ -27,12 +37,16 @@ class Handover(Base):
     department = Column(
         Enum("CS", "HES", "LENOVO", name="handover_department_enum"),
         nullable=False,
-        default="CS"
+        default="CS",
     )
     update_at = Column(DateTime, nullable=False, default=func.now())
-    is_locked = Column(Boolean, default=False)
-    locked_by = Column(String(50), nullable=True)  # 락 소유자 ID
-    locked_at = Column(DateTime, nullable=True)  # 락 획득 시간
+    create_time = Column(DateTime, nullable=False, server_default=func.now())
+    status = Column(
+        Enum("OPEN", "CLOSE", name="handover_status_enum"),
+        nullable=False,
+        server_default="OPEN",
+    )
+    version = Column(Integer, nullable=False, server_default=text("1"))
 
     # 관계 설정 - backref 대신 back_populates로 명시적 양방향 관계 정의
     updater = relationship(

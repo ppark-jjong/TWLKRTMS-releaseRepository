@@ -191,9 +191,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const formData = new FormData(form);
 
-        if (!formData.get('user_id') || !formData.get('user_password')) {
+        if (
+          !formData.get('user_id') ||
+          !formData.get('user_name') ||
+          !formData.get('user_password')
+        ) {
           Utils.alerts.showWarning(
-            '필수 입력 항목(ID, 비밀번호)을 모두 입력해주세요.'
+            '필수 입력 항목(ID, 이름, 비밀번호)을 모두 입력해주세요.'
           );
           return;
         }
