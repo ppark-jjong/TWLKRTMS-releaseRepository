@@ -15,6 +15,7 @@ from datetime import datetime
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Optional
 from main.utils.config import get_settings
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # --- 로깅 설정 초기화 ---
 settings = get_settings()
@@ -92,6 +93,11 @@ app = FastAPI(
     lifespan=lifespan,  # lifespan 핸들러 적용
 )
 
+# 프록시 헤더 미들웨어 추가 (X-Forwarded-For, X-Forwarded-Proto 등)
+# trusted_hosts는 App Engine 환경에 맞게 설정하거나, '*'로 모든 프록시를 신뢰할 수 있습니다.
+# GAE 환경에서는 Google의 프록시만 존재하므로 '*'로 설정해도 일반적으로 안전합니다.
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 
 # --- 미들웨어 클래스 정의 ---
 
@@ -142,15 +148,18 @@ app.add_middleware(LoggingMiddleware)
 
 # 2. 세션 미들웨어
 # GAE 환경에서는 HTTPS 강제, 로컬에서는 HTTP 허용
-is_production = os.getenv("GAE_ENV", "").startswith("standard")
+# is_production = os.getenv("GAE_ENV", "").startswith("standard") # 기존 로직
+is_app_engine_env = bool(
+    os.getenv("GAE_INSTANCE")
+)  # App Engine 환경 (Standard/Flexible) 감지
 logger.info(
-    f"환경 감지: {'프로덕션(GAE)' if is_production else '로컬/개발'} - HTTPS 강제: {is_production}"
+    f"환경 감지: {'App Engine' if is_app_engine_env else '로컬/개발'} - 세션 쿠키 HTTPS 강제: {is_app_engine_env}"
 )
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
     max_age=settings.SESSION_EXPIRE_HOURS * 60 * 60,
-    https_only=is_production,  # 프로덕션에서만 HTTPS 강제
+    https_only=is_app_engine_env,  # App Engine 환경이면 항상 True
     same_site="lax",
     session_cookie="session",
 )

@@ -83,4 +83,7 @@ Administrators have all regular user capabilities plus:
 
 ---
 
-*This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.*
+*Note..* <br>
+*1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.*
+
+*2. For account access, please contact Sungyong Kim at TWLKR.*
