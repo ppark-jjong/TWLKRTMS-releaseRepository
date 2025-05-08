@@ -2,7 +2,7 @@
 # <img src="main/static/images/favicon.ico" alt="TWLKR Logo" width="20" style="vertical-align: middle;"/> TWLKR Real-Time Delivery Control System
 
 > **Production URL:** https://twlkr-459107.du.r.appspot.com<br>
-> *1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.* <br><br>
+> *1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.* 
 > *2. For account access, please contact Sungyong Kim at TWLKR.*
 
 ## 1. Project Summary
