@@ -8,6 +8,90 @@
   rel="stylesheet"
   href="{{ url_for('static', path='css/dashboard_additions.css') }}"
 />
+<style>
+  /* 일괄 작업 영역 스타일 (임시) */
+  #batchActions {
+    margin-top: 1rem;
+    padding: 0.8rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius-md);
+    display: flex; /* 버튼들을 가로로 배열 */
+    gap: 0.5rem; /* 버튼 사이 간격 */
+    align-items: center; /* 세로 중앙 정렬 */
+  }
+  #batchActions .selected-count {
+    font-weight: 500;
+    margin-right: 1rem;
+  }
+  #batchActions button {
+    padding: 0.4rem 0.8rem;
+  }
+  /* 모달 기본 스타일 */
+  .modal {
+    display: none; /* 기본 숨김 */
+    opacity: 0; /* 기본 투명 */
+    transition: opacity 0.3s ease-in-out; /* 부드러운 효과 */
+    position: fixed;
+    z-index: 1050; /* 다른 요소 위에 표시 */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+  .modal.modal-active {
+    display: block; /* 보이도록 block 처리 */
+    opacity: 1; /* 완전 불투명 */
+  }
+  .modal-dialog {
+    position: relative;
+    margin: 5% auto; /* 위에서 5% 아래, 중앙 정렬 */
+    padding: 20px;
+    width: 80%;
+    max-width: 500px; /* 최대 너비 */
+    background-color: #fff;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+  }
+  .modal-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+  }
+  .modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #6c757d;
+  }
+  .modal-body .form-group {
+    margin-bottom: 1rem;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+    margin-top: 20px;
+  }
+  /* 행갯수 선택 드롭다운 너비 조정 */
+  #rowsPerPageSelect {
+    width: 80px; /* 원하는 너비로 조절 */
+  }
+</style>
 {% endblock %} {% block content %}
 <div class="dashboard-page">
   <!-- 로딩 오버레이 -->
@@ -93,13 +177,13 @@
           </select>
         </div>
         <div class="filter-item">
-          <label for="driverNameFilter">기사명</label>
-          <input
-            type="text"
-            id="driverNameFilter"
-            class="filter-input"
-            placeholder="기사명 검색"
-          />
+          <label for="deliveryCompanyFilter">배송사</label>
+          <select id="deliveryCompanyFilter" class="filter-select">
+            <option value="">전체</option>
+            <option value="로얄">로얄</option>
+            <option value="서경">서경</option>
+            <option value="택화">택화</option>
+          </select>
         </div>
         <!-- 창고 필터 제거 (요구사항 아님) -->
         <!-- <button class="btn secondary-btn" id="applyFilterBtn"> 필터 적용 </button> -->
@@ -111,6 +195,7 @@
       <!-- 액션 버튼 영역 -->
       <div class="actions-row">
         <div class="left-actions">
+          <!-- 컬럼 설정 및 행 수 선택 (왼쪽으로 이동) -->
           <button class="btn secondary-btn" id="customizeColumnsBtn">
             <i class="fa-solid fa-table-columns"></i> 컬럼 설정
           </button>
@@ -121,17 +206,26 @@
               <option value="100">100 행</option>
             </select>
           </div>
+          <!-- 기존 batchActions div 제거 -->
         </div>
         <div class="right-actions">
+          <!-- 새로고침, 엑셀 다운로드 -->
           <button class="btn secondary-btn" id="refreshBtn">
             <i class="fa-solid fa-arrows-rotate"></i> 새로고침
           </button>
-          <!-- 관리자만 볼 수 있는 엑셀 다운로드 버튼 -->
           {% if current_user and current_user.user_role == 'ADMIN' %}
           <button class="btn secondary-btn" id="exportExcelBtn">
             <i class="fa-solid fa-file-excel"></i> 엑셀 다운로드
           </button>
           {% endif %}
+          <!-- 일괄 작업 버튼 (오른쪽으로 이동, 항상 표시, 초기는 비활성화) -->
+          <button class="btn secondary-btn" id="batchStatusUpdateBtn" disabled>
+            <i class="fa-solid fa-tags"></i> 상태 일괄 변경
+          </button>
+          <button class="btn secondary-btn" id="batchDriverAssignBtn" disabled>
+            <i class="fa-solid fa-user-plus"></i> 기사 일괄 배정
+          </button>
+          <!-- 신규 등록 -->
           <a href="/orders/new" class="btn primary-btn">
             <i class="fa-solid fa-plus"></i> 신규 등록
           </a>
@@ -164,11 +258,16 @@
         <table class="data-table" id="dashboardTable">
           <thead id="dashboardTableHead">
             <!-- JS로 헤더 동적 생성 예정 -->
+            <!-- 예시: 헤더 첫번째 컬럼에 전체 선택 체크박스 추가 필요 -->
+            <!-- <tr><th><input type="checkbox" id="selectAllCheckbox"></th><th>주문번호</th>...</tr> -->
           </thead>
           <tbody id="dashboardTableBody">
             <!-- JS로 데이터 로드 및 렌더링 예정 -->
+            <!-- 예시: 각 행 첫번째 셀에 개별 체크박스 추가 필요 -->
+            <!-- <tr data-id="ORDER_ID"><td><input type="checkbox" class="rowCheckbox"></td><td>ORDER_NO</td>...</tr> -->
             <tr class="initial-loading-row">
-              <td colspan="10" class="empty-table">
+              <!-- 초기 로딩 시 컬럼 수 조정 필요 -->
+              <td colspan="11" class="empty-table">
                 <div class="empty-placeholder">
                   <i class="fa-solid fa-spinner fa-spin"></i>
                   <p>데이터를 로딩 중입니다...</p>
@@ -205,10 +304,121 @@
       </div>
     </div>
   </div>
+
+  <!-- === 일괄 작업 모달창 === -->
+
+  <!-- 1. 상태 일괄 변경 모달 -->
+  <div id="batchStatusUpdateModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">상태 일괄 변경</h3>
+          <button type="button" class="modal-close-btn" data-dismiss="modal">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>
+            <strong id="batchStatusUpdateCount">0</strong>개의 주문 상태를
+            변경합니다.
+          </p>
+          <!-- 주문번호 표시 영역 추가 -->
+          <p
+            id="selectedOrderNosStatus"
+            style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
+          ></p>
+          <div class="form-group">
+            <label for="batchNewStatus">변경할 상태</label>
+            <select id="batchNewStatus" class="form-control">
+              <!-- JS로 옵션 동적 생성 -->
+            </select>
+            <small class="text-muted"
+              >선택된 모든 주문에 적용 가능한 상태만 표시됩니다.</small
+            >
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn secondary-btn" data-dismiss="modal">
+            취소
+          </button>
+          <button
+            type="button"
+            class="btn primary-btn"
+            id="confirmBatchStatusUpdateBtn"
+          >
+            변경 적용
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 기사 일괄 배정 모달 -->
+  <div id="batchDriverAssignModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">기사 일괄 배정</h3>
+          <button type="button" class="modal-close-btn" data-dismiss="modal">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>
+            <strong id="batchDriverAssignCount">0</strong>개의 주문에 기사를
+            배정합니다.
+          </p>
+          <!-- 주문번호 표시 영역 추가 -->
+          <p
+            id="selectedOrderNosDriver"
+            style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
+          ></p>
+          <div class="form-group">
+            <label for="batchDriverName"
+              >기사명 <span class="required">*</span></label
+            >
+            <input
+              type="text"
+              id="batchDriverName"
+              class="form-control"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="batchDriverContact">기사 연락처</label>
+            <input type="text" id="batchDriverContact" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label for="batchDeliveryCompany">배송사</label>
+            <select id="batchDeliveryCompany" class="form-control">
+              <option value="">선택 안함</option>
+              <option value="로얄">로얄</option>
+              <option value="서경">서경</option>
+              <option value="택화">택화</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn secondary-btn" data-dismiss="modal">
+            취소
+          </button>
+          <button
+            type="button"
+            class="btn primary-btn"
+            id="confirmBatchDriverAssignBtn"
+          >
+            배정 적용
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %} {% block page_js %}
 
 <!-- 대시보드 관련 스크립트 -->
 <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+<!-- 추가: 일괄 작업 스크립트 -->
+<script src="{{ url_for('static', path='js/dashboard_batch_actions.js') }}"></script>
 
 {% endblock %}

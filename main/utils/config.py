@@ -58,12 +58,6 @@ class Settings:
         )
         self.SESSION_EXPIRE_HOURS = int(os.getenv("SESSION_EXPIRE_HOURS", "24"))
 
-        # 락 관련 설정
-        self.LOCK_TIMEOUT_SECONDS = int(os.getenv("LOCK_TIMEOUT_SECONDS", "300"))
-        self.LOCK_CLEANUP_INTERVAL_MINUTES = int(
-            os.getenv("LOCK_CLEANUP_INTERVAL_MINUTES", "10")
-        )
-
         # GAE 환경 확인 - 항상 standard로 설정
         self.GAE_ENV = "standard"
 

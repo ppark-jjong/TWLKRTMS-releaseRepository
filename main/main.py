@@ -37,6 +37,7 @@ from main.routes import (
     handover_route,
     users_route,
     excel_export,
+    general_route,
 )
 from main.core.templating import templates
 
@@ -198,11 +199,8 @@ app.include_router(handover_route.api_router, tags=["Handover API"])  # API 라�
 app.include_router(users_route.page_router, tags=["User Admin Pages"])  # 페이지 라우터
 app.include_router(users_route.api_router, tags=["User Admin API"])  # API 라우터
 
-# 락 라우터 (handover_route에 정의된 lock_router 사용 가정)
-# TODO: lock_router가 handover_route 외 다른 곳에서도 필요한지 확인 필요
-# 만약 여러 곳에서 필요하다면 별도 lock_route.py 파일로 분리하는 것이 좋음
-# 여기서는 handover_route의 것을 사용한다고 가정
-app.include_router(handover_route.api_router, tags=["Lock API"])  # 락 API 라우터
+# 일반 페이지 라우터 (Vinfiniti 등)
+app.include_router(general_route.page_router, tags=["General Pages"])
 
 
 # --- 정적 파일 서빙 --- (규칙 4.3.1)

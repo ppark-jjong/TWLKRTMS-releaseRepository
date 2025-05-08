@@ -116,7 +116,15 @@
                   <span>User Management</span>
                 </a>
               </li>
-              {% endif %}
+              {% endif %} {# Vinfiniti 메뉴 추가 #}
+              <li
+                class="menu-item {% if request.url.path == '/vinfiniti' %}active{% endif %}"
+              >
+                <a href="/vinfiniti">
+                  <i class="fa-solid fa-link"></i>
+                  <span>Vinfiniti</span>
+                </a>
+              </li>
             </ul>
           </nav>
 

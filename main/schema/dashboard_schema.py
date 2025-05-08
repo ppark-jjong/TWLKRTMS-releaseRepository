@@ -23,6 +23,7 @@ class DashboardCreate(BaseModel):
     remark: Optional[str] = Field(None, description="비고")
     driver_name: Optional[str] = Field(None, description="기사 이름")
     driver_contact: Optional[str] = Field(None, description="기사 연락처")
+    delivery_company: Optional[str] = Field(None, description="배송사")
 
     @validator("postal_code")
     def validate_postal_code(cls, v):
@@ -63,6 +64,7 @@ class DashboardUpdate(BaseModel):
     )
     driver_name: Optional[str] = Field(None, description="기사 이름")
     driver_contact: Optional[str] = Field(None, description="기사 연락처")
+    delivery_company: Optional[str] = Field(None, description="배송사")
 
     @validator("postal_code")
     def validate_postal_code(cls, v):
@@ -109,10 +111,11 @@ class DashboardResponse(BaseModel):
     duration_time: Optional[int] = Field(None, description="소요 시간(분)")
     driver_name: Optional[str] = Field(None, description="기사 이름")
     driver_contact: Optional[str] = Field(None, description="기사 연락처")
+    delivery_company: Optional[str] = Field(None, description="배송사")
     update_by: Optional[str] = Field(None, description="마지막 업데이트 사용자")
     remark: Optional[str] = Field(None, description="비고")
     update_at: Optional[datetime] = Field(None, description="마지막 업데이트 시간")
-    is_locked: bool = Field(False, description="락 여부")
+    version: int = Field(..., description="데이터 버전")
 
     class Config:
         """스키마 설정"""
@@ -125,21 +128,23 @@ class DashboardResponse(BaseModel):
 
 
 class DashboardListItem(BaseModel):
-    """주문 목록 항목 스키마"""
+    """주문 목록 항목 스키마 (최종 요구사항 반영)"""
 
-    dashboard_id: int = Field(..., description="대시보드 ID")
-    order_no: str = Field(..., description="주문번호")
-    type: str = Field(..., description="유형(DELIVERY/RETURN)")
-    department: str = Field(..., description="부서(CS/HES/LENOVO)")
-    warehouse: str = Field(..., description="창고(SEOUL/BUSAN/GWANGJU/DAEJEON)")
-    sla: str = Field(..., description="SLA")
-    region: Optional[str] = Field(None, description="지역(시 구 동) - DB 생성")
-    eta: datetime = Field(..., description="ETA(도착 예정 시간)")
-    customer: str = Field(..., description="고객명")
-    status: str = Field(
-        ..., description="상태(WAITING/IN_PROGRESS/COMPLETE/ISSUE/CANCEL)"
-    )
-    driver_name: Optional[str] = Field(None, description="기사 이름")
+    dashboard_id: int
+    create_time: Optional[datetime]
+    order_no: str
+    type: str
+    department: str
+    warehouse: str
+    sla: str
+    eta: Optional[datetime]
+    status: str
+    region: Optional[str]
+    depart_time: Optional[datetime]
+    complete_time: Optional[datetime]
+    customer: str
+    delivery_company: Optional[str]
+    driver_name: Optional[str]
 
     class Config:
         """스키마 설정"""
@@ -175,20 +180,3 @@ class DashboardDeleteRequest(BaseModel):
         """스키마 설정"""
 
         populate_by_name = True
-
-
-class LockStatusResponse(BaseModel):
-    """락 상태 응답 스키마"""
-
-    editable: bool = Field(..., description="편집 가능 여부")
-    message: str = Field(..., description="메시지")
-    locked_by: Optional[str] = Field(None, description="락 보유자")
-    locked_at: Optional[datetime] = Field(None, description="락 획득 시간")
-
-    class Config:
-        """스키마 설정"""
-
-        populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M") if v else None
-        }

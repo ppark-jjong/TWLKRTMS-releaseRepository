@@ -43,6 +43,12 @@
   <div class="main-card">
     <form id="orderForm" method="POST" class="order-form two-column-form" 
           action="{% if is_edit %}/api/orders/{{ order.dashboard_id }}{% else %}/api/orders{% endif %}">
+      
+      {# 수정 모드일 때 version 값 hidden input 추가 #}
+      {% if is_edit %}
+      <input type="hidden" name="version" value="{{ order.version }}">
+      {% endif %}
+
       <div class="form-section">
         <h3 class="section-title">기본 정보</h3>
         <div class="form-grid">
@@ -172,11 +178,8 @@
               class="select-field"
               required
             >
-              <option value="WAITING" {% if order.status == 'WAITING' %}selected{% endif %}>대기</option>
-              <option value="IN_PROGRESS" {% if order.status == 'IN_PROGRESS' %}selected{% endif %}>진행</option>
-              <option value="COMPLETE" {% if order.status == 'COMPLETE' %}selected{% endif %}>완료</option>
-              <option value="ISSUE" {% if order.status == 'ISSUE' %}selected{% endif %}>이슈</option>
-              <option value="CANCEL" {% if order.status == 'CANCEL' %}selected{% endif %}>취소</option>
+              <!-- 이 옵션들은 JavaScript로 동적으로 교체됩니다 -->
+              <option value="{{ order.status }}">{{ order.status_label }}</option>
             </select>
             {% else %}
             <!-- 신규 주문 생성 시 상태는 항상 '대기'로 고정 -->
@@ -212,6 +215,15 @@
             />
             <small class="form-text text-muted">하이픈(-)은 자동으로 입력됩니다</small>
           </div>
+          <div class="form-group">
+            <label for="delivery_company">배송사</label>
+            <select id="delivery_company" name="delivery_company" class="select-field">
+              <option value="" {% if not is_edit or not order.delivery_company %}selected{% endif %}>-- 선택 --</option>
+              <option value="로얄" {% if is_edit and order.delivery_company == '로얄' %}selected{% endif %}>로얄</option>
+              <option value="서경" {% if is_edit and order.delivery_company == '서경' %}selected{% endif %}>서경</option>
+              <option value="택화" {% if is_edit and order.delivery_company == '택화' %}selected{% endif %}>택화</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -236,289 +248,105 @@
 
 {% block page_js %}
 <script>
-  // status_labels 정의 (전역 또는 필요한 스코프)
-  const status_labels = {
-      'WAITING': '대기',
-      'IN_PROGRESS': '진행',
-      'COMPLETE': '완료',
-      'ISSUE': '이슈',
-      'CANCEL': '취소'
-  };
-  
-  document.addEventListener('DOMContentLoaded', function () {
-    // 우편번호 자동 포맷팅 및 유효성 검사
-    const postalCodeInput = document.getElementById('postal_code');
-    if (postalCodeInput) {
-      // 입력 제한: 숫자만 입력 가능, 최대 5자리
-      postalCodeInput.addEventListener('input', function(e) {
-        // 숫자만 허용
-        this.value = this.value.replace(/[^\d]/g, '');
-        
-        // 5자 이상 입력 방지
-        if (this.value.length > 5) {
-          this.value = this.value.slice(0, 5);
-        }
-      });
-
-      // 자동 포맷팅: 4자리만 입력한 경우 앞에 0 붙이기
-      postalCodeInput.addEventListener('blur', function() {
-        const value = this.value.trim();
-        if (value.length === 4 && /^\d{4}$/.test(value)) {
-          this.value = '0' + value;
-        }
-      });
-    }
-
-    // 연락처 자동 하이픈 포맷팅
-    const contactInput = document.getElementById('contact');
-    if (contactInput) {
-      contactInput.addEventListener('input', function() {
-        // 숫자만 허용
-        const numericValue = this.value.replace(/[^\d]/g, '');
-        // 하이픈 포맷팅 적용
-        this.value = Utils.formatPhoneNumber(numericValue);
-      });
-      
-      // 유효성 검사
-      contactInput.addEventListener('blur', function() {
-        if (this.value && this.value.length < 8) {
-          Utils.alerts.showWarning('연락처 형식이 올바르지 않습니다. 정확한 번호를 입력해주세요.');
-        }
-      });
+  // 이 스크립트 블록은 페이지 로드 시 초기 설정 및 간단한 UI 상호작용만 담당합니다.
+  document.addEventListener('DOMContentLoaded', function() {
+    // userInfo 요소가 없으면 생성 (BaseApp 등 다른 곳에서 처리 가능하다면 중복 제거 고려)
+    if (!document.getElementById('userInfo')) {
+      const userInfoEl = document.createElement('div');
+      userInfoEl.id = 'userInfo';
+      userInfoEl.style.display = 'none'; 
+      userInfoEl.dataset.userId = "{{ current_user.user_id }}";
+      userInfoEl.dataset.userRole = "{{ current_user.user_role }}";
+      userInfoEl.dataset.department = "{{ current_user.department|default('') }}";
+      document.body.appendChild(userInfoEl);
     }
     
-    // 기사 연락처 자동 하이픈 포맷팅
+    // 전역 status_labels 정의 (order_form.js 등에서 사용 가능)
+    window.status_labels = {
+      'WAITING': '대기', 'IN_PROGRESS': '진행', 'COMPLETE': '완료',
+      'ISSUE': '이슈', 'CANCEL': '취소'
+    };
+    
+    // 수정 모드일 때 초기 상태 정보 전달 (order_form.js에서 사용)
+    {% if is_edit and order %}
+    window.initialOrderStatus = {
+      value: "{{ order.status }}",
+      label: "{{ order.status_label|default(order.status) }}"
+    };
+    {% endif %}
+  });
+  
+  // DOMContentLoaded 후 실행되어야 하는 UI 초기화 및 이벤트 리스너 (폼 제출 외)
+  document.addEventListener('DOMContentLoaded', function () {
+    const postalCodeInput = document.getElementById('postal_code');
+    const contactInput = document.getElementById('contact');
     const driverContactInput = document.getElementById('driver_contact');
-    if (driverContactInput) {
-      driverContactInput.addEventListener('input', function() {
-        // 숫자만 허용
-        const numericValue = this.value.replace(/[^\d]/g, '');
-        // 하이픈 포맷팅 적용
-        this.value = Utils.formatPhoneNumber(numericValue);
-      });
-      
-      // 유효성 검사
-      driverContactInput.addEventListener('blur', function() {
-        if (this.value && this.value.length < 8) {
-          Utils.alerts.showWarning('기사 연락처 형식이 올바르지 않습니다. 정확한 번호를 입력해주세요.');
-        }
-      });
-    }
-
-    // ETA 날짜/시간 선택기 개선 (flatpickr)
     const etaInput = document.getElementById('eta');
     const etaNowBtn = document.getElementById('etaNowBtn');
-    
-    if (etaInput) {
-      // ETA 기존 값이 있으면 파싱
-      let defaultDate = null;
-      const currentValue = etaInput.value;
-      if (currentValue) {
-        try {
-          defaultDate = new Date(currentValue);
-        } catch (e) {
-          // ETA 날짜 파싱 오류 발생
-        }
-      }
-
-      // flatpickr 초기화
-      const etaPicker = flatpickr(etaInput, {
-        locale: "ko",
-        enableTime: true,
-        dateFormat: "Y-m-d H:i",
-        time_24hr: true,
-        minuteIncrement: 10,
-        defaultDate: defaultDate,
-        disableMobile: true,
-        allowInput: true
-      });
-
-      // '지금' 버튼 이벤트 설정
-      if (etaNowBtn) {
-        etaNowBtn.addEventListener('click', function() {
-          const now = new Date();
-          etaPicker.setDate(now, true);
-        });
-      }
-    }
-
-    // --- 주문 상태 드롭다운 변경 시 유효성 검증 및 알림 (재추가/수정) ---
-    const statusSelect = document.getElementById('status');
-    const currentUserRole = "{{ current_user.user_role }}"; // Jinja 템플릿 변수 가져오기
-    
-    if (statusSelect) {
-      const initialStatus = statusSelect.value;
-
-      // 최종 상태 변경 규칙 (프론트엔드 유효성 검증용)
-      const allowedTransitions = {
-        'WAITING': ['WAITING', 'IN_PROGRESS', 'ISSUE', 'CANCEL'],
-        'IN_PROGRESS': ['IN_PROGRESS', 'COMPLETE', 'ISSUE', 'CANCEL'],
-        'COMPLETE': ['COMPLETE', 'ISSUE', 'CANCEL'],
-        'ISSUE': ['ISSUE'], 
-        'CANCEL': ['CANCEL'] 
-      };
-      // 관리자 역행 경로
-      const adminReverseTransitions = {
-         'IN_PROGRESS': ['WAITING'],
-         'COMPLETE': ['IN_PROGRESS']
-      };
-      
-      // 옵션 활성화/비활성화 로직 제거
-      /*
-      const options = statusSelect.options;
-      let allowedNextStates = [];
-      allowedNextStates.push(initialStatus);
-      if (initialStatus !== 'ISSUE' && initialStatus !== 'CANCEL') {
-           allowedNextStates.push(...(allowedTransitions[initialStatus] || []));
-           if (currentUserRole === 'ADMIN') {
-               allowedNextStates.push(...(adminReverseTransitions[initialStatus] || []));
-           }
-      }
-      allowedNextStates = [...new Set(allowedNextStates)];
-      for (let i = 0; i < options.length; i++) {
-        const option = options[i];
-        if (!allowedNextStates.includes(option.value)) {
-          option.disabled = true;
-        } else {
-          option.disabled = false;
-        }
-      }
-      */
-
-      // 'change' 이벤트 리스너 추가 (알림 방식)
-      statusSelect.addEventListener('change', function() {
-        const currentStatus = initialStatus; // 변경 시점의 초기 상태 기준
-        const newStatus = this.value;
-        
-        let isAllowed = false;
-        let allowedNext = [];
-        
-        // 허용 경로 결정
-        if (currentStatus !== 'ISSUE' && currentStatus !== 'CANCEL') {
-            allowedNext.push(...(allowedTransitions[currentStatus] || []));
-            if (currentUserRole === 'ADMIN') {
-                allowedNext.push(...(adminReverseTransitions[currentStatus] || []));
-            }
-            allowedNext = [...new Set(allowedNext)]; // 중복 제거
-        } else {
-             allowedNext.push(currentStatus); // 최종 상태는 자기 자신만 허용
-        }
-        
-        isAllowed = allowedNext.includes(newStatus);
-
-        // 허용되지 않는 변경 시 알림 및 되돌리기
-        if (!isAllowed) {
-          this.value = currentStatus; // 이전 값으로 되돌리기
-          
-          // 알림 메시지 생성 (이전 로직 재활용 및 개선)
-          let errorMessage = `'${status_labels[currentStatus] || currentStatus}' 상태에서는 '${status_labels[newStatus] || newStatus}' 상태로 변경할 수 없습니다.`;
-          if (currentStatus === 'WAITING') {
-              errorMessage = `'대기' 상태에서는 '진행', '이슈', '취소'만 가능합니다.`;
-          } else if (currentStatus === 'IN_PROGRESS') {
-              errorMessage = currentUserRole === 'ADMIN' ? `'진행' 상태에서는 '대기', '완료', '이슈', '취소'만 가능합니다.` : `'진행' 상태에서는 '완료', '이슈', '취소'만 가능합니다.`;
-          } else if (currentStatus === 'COMPLETE') {
-               errorMessage = currentUserRole === 'ADMIN' ? `'완료' 상태에서는 '진행', '이슈', '취소'만 가능합니다.` : `'완료' 상태에서는 '이슈' 또는 '취소'만 가능합니다.`;
-          } else if (currentStatus === 'ISSUE') {
-              errorMessage = `'이슈' 상태는 변경할 수 없습니다.`;
-          } else if (currentStatus === 'CANCEL') {
-              errorMessage = `'취소' 상태는 변경할 수 없습니다.`;
-          }
-          
-          // 알림 표시
-          if (typeof Utils !== 'undefined' && Utils.alerts && Utils.alerts.showWarning) {
-              Utils.alerts.showWarning(errorMessage);
-          } else {
-              alert(errorMessage); // 폴백
-          }
-        }
-      });
-    }
-    // --- 상태 드롭다운 제어 끝 ---
-
-    // 페이지 나갈 때 락 해제
-    /* {% if is_edit and order and order.dashboard_id %} */
-    const dashboardId = "{{ order.dashboard_id }}";
-    
-    if (dashboardId) {
-      // 페이지 이탈 시 락 해제 함수
-      const releaseLock = async () => {
-        try {
-          // 락 해제 API 호출 (브라우저 캐시 방지용 랜덤 파라미터 추가)
-          const response = await fetch(`/api/orders/${dashboardId}/release-lock?_=${Date.now()}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          
-          await response.text(); // 락 해제 요청 완료
-        } catch (error) {
-          // 락 해제 중 오류 발생
-        }
-      };
-      
-      // 페이지 이탈 이벤트에 락 해제 연결
-      window.addEventListener('beforeunload', releaseLock);
-      
-      // 취소 버튼 클릭 시에도 락 해제
-      const cancelBtn = document.querySelector('.secondary-btn');
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function(e) {
-          // 기본 이벤트 방지 (href 이동 전에 락 해제 실행)
-          e.preventDefault();
-          
-          // 락 해제 후 페이지 이동
-          releaseLock().then(() => {
-            window.location.href = this.getAttribute('href');
-          });
-        });
-      }
-    }
-    /* {% endif %} */
-
-    // 폼 제출 처리
     const form = document.getElementById('orderForm');
     const submitBtn = document.getElementById('submitBtn');
-    
-    if (form) {
-      form.addEventListener('submit', function (e) {
-        let hasError = false;
-        
-        // 우편번호 유효성 검사
-        if (postalCodeInput && postalCodeInput.value.length !== 5) {
-          e.preventDefault();
-          Utils.alerts.showWarning('우편번호는 5자리 숫자로 입력해주세요.');
-          postalCodeInput.focus();
-          hasError = true;
-        }
-        
-        // 연락처 유효성 검사 (입력된 경우)
-        if (contactInput && contactInput.value && contactInput.value.replace(/[^0-9]/g, '').length < 8) {
-          e.preventDefault();
-          Utils.alerts.showWarning('올바른 연락처 형식으로 입력해주세요.');
-          contactInput.focus();
-          hasError = true;
-        }
-        
-        // 기사 연락처 유효성 검사 (입력된 경우)
-        if (driverContactInput && driverContactInput.value && driverContactInput.value.replace(/[^0-9]/g, '').length < 8) {
-          e.preventDefault();
-          Utils.alerts.showWarning('올바른 기사 연락처 형식으로 입력해주세요.');
-          driverContactInput.focus();
-          hasError = true;
-        }
-      
-        // 오류가 없으면 로딩 상태 표시
-        if (!hasError && submitBtn) {
-          submitBtn.disabled = true;
-          const isEdit = "{{ is_edit }}" === "True";
-          submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${
-            isEdit ? '저장 중...' : '등록 중...'
-          }`;
-        }
+
+    // 포맷팅 관련 리스너
+    if (postalCodeInput) {
+      postalCodeInput.addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^\d]/g, '');
+        if (this.value.length > 5) { this.value = this.value.slice(0, 5); }
       });
+      postalCodeInput.addEventListener('blur', function() {
+        const value = this.value.trim();
+        if (value.length === 4 && /^\d{4}$/.test(value)) { this.value = '0' + value; }
+      });
+    }
+    if (contactInput) {
+      contactInput.addEventListener('input', function() {
+        this.value = Utils.formatPhoneNumber(this.value.replace(/[^\d]/g, ''));
+      });
+    }
+    if (driverContactInput) {
+      driverContactInput.addEventListener('input', function() {
+        this.value = Utils.formatPhoneNumber(this.value.replace(/[^\d]/g, ''));
+      });
+    }
+
+    // ETA 관련 리스너
+    if (etaInput) {
+      let defaultDate = null;
+      if (etaInput.value) { try { defaultDate = new Date(etaInput.value); } catch (e) {} }
+      const etaPicker = flatpickr(etaInput, {
+        locale: "ko", enableTime: true, dateFormat: "Y-m-d H:i", time_24hr: true,
+        minuteIncrement: 10, defaultDate: defaultDate, disableMobile: true, allowInput: true
+      });
+      if (etaNowBtn) {
+        etaNowBtn.addEventListener('click', function() { etaPicker.setDate(new Date(), true); });
+      }
+    }
+
+    // 폼 제출 시 로딩 표시 (기본 제출은 막지 않음!)
+    if (form && submitBtn) {
+        form.addEventListener('submit', function() {
+            // HTML5 유효성 검사가 통과했을 때만 실행됨 (submit 이벤트 발생 시)
+            // 여기서는 버튼 로딩 표시만 하고, preventDefault는 호출하지 않음.
+            submitBtn.disabled = true;
+            const isEdit = {{ is_edit|tojson }};
+            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${isEdit ? '저장 중...' : '등록 중...'}`;
+        });
+    }
+
+    // 취소 버튼 로직
+    const dashboardIdForCancel = "{{ order.dashboard_id|default('') }}";
+    if (dashboardIdForCancel) { 
+      const cancelBtn = document.querySelector('a.secondary-btn[href*="/orders/"]'); 
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function(e) {
+          if (!confirm('변경사항이 저장되지 않았습니다. 정말 취소하시겠습니까?')) {
+             e.preventDefault(); // 취소 시에만 페이지 이동 막기
+          }
+        });
+      }
     }
   });
 </script>
+
+{# 분리된 order_form.js 파일 로드 #}
+<script src="{{ url_for('static', path='js/order_form.js') }}"></script>
 {% endblock %}

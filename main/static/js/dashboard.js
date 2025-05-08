@@ -31,7 +31,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const cancelColumnsBtn = document.getElementById('cancelColumnsBtn');
   const applyColumnsBtn = document.getElementById('applyColumnsBtn');
   const todayBtn = document.getElementById('todayBtn');
-  const driverNameFilterInput = document.getElementById('driverNameFilter');
+  const deliveryCompanyFilter = document.getElementById(
+    'deliveryCompanyFilter'
+  );
 
   // --- 상태 변수 ---
   let allOrders = [];
@@ -41,30 +43,64 @@ document.addEventListener('DOMContentLoaded', function () {
   let totalItems = 0;
   let totalPages = 1;
   let initialLoadComplete = false; // 전체 데이터 로드 완료 여부
-  let etaSortDirection = null; // 'asc', 'desc', null(정렬안함)
+  // let etaSortDirection = null; // 기조 ETA 정렬 변수 제거 또는 주석 처리
   // Flatpickr 인스턴스
   let startDatePicker = null;
   let endDatePicker = null;
+  let sortField = 'eta'; // 기본 정렬 필드 (예: ETA) - 위치 이동
+  let sortDirection = 'desc'; // 기본 정렬 방향 - 위치 이동
 
-  // 컬럼 정보 (표시 순서 및 기본 표시 여부 정의)
+  // 각 컬럼별 정렬 아이콘 결정 함수 (안으로 이동)
+  function getSortIcon(field) {
+    if (field !== sortField) {
+      return '<i class="fa-solid fa-sort"></i>'; // 기본 아이콘
+    }
+    return sortDirection === 'asc'
+      ? '<i class="fa-solid fa-sort-up"></i>' // 오름차순 아이콘
+      : '<i class="fa-solid fa-sort-down"></i>'; // 내림차순 아이콘
+  }
+
+  // 컬럼 정보 (표시 순서 및 기본 표시 여부 정의) - 최종 요구사항 반영 및 너비 고정
   const columnDefinitions = [
+    // dashboard_id는 숨김
     {
-      key: 'orderNo',
+      key: 'create_time',
+      label: '등록 일자',
+      width: '160px',
+      visible: true,
+      sortable: true,
+    },
+    {
+      key: 'order_no',
       label: '주문번호',
-      width: '15%',
+      width: '120px',
       visible: true,
       required: true,
     },
-    { key: 'typeLabel', label: '유형', width: '8%', visible: true },
-    { key: 'department', label: '부서', width: '10%', visible: true },
-    { key: 'warehouse', label: '창고', width: '10%', visible: true },
-    { key: 'sla', label: 'SLA', width: '8%', visible: true },
-    { key: 'region', label: '지역', width: '15%', visible: true },
-    { key: 'eta', label: 'ETA', width: '15%', visible: true, sortable: true },
-    { key: 'customer', label: '고객', width: '10%', visible: true },
-    { key: 'statusLabel', label: '상태', width: '10%', visible: true },
-    { key: 'driverName', label: '배송기사', width: '12%', visible: true },
-    // { key: 'postalCode', label: '우편번호', width: '10%', visible: false }, // 우편번호 제거
+    { key: 'typeLabel', label: '타입', width: '80px', visible: true },
+    { key: 'department', label: '부서', width: '80px', visible: true },
+    { key: 'warehouse', label: '창고', width: '80px', visible: true },
+    { key: 'sla', label: 'SLA', width: '70px', visible: true },
+    { key: 'eta', label: 'ETA', width: '160px', visible: true, sortable: true },
+    { key: 'statusLabel', label: '상태', width: '80px', visible: true },
+    { key: 'region', label: '지역', width: '180px', visible: true },
+    {
+      key: 'depart_time',
+      label: '출발시간',
+      width: '160px',
+      visible: true,
+      sortable: true,
+    },
+    {
+      key: 'complete_time',
+      label: '도착시간',
+      width: '160px',
+      visible: true,
+      sortable: true,
+    },
+    { key: 'customer', label: '고객명', width: '120px', visible: true },
+    { key: 'delivery_company', label: '배송사', width: '80px', visible: true },
+    { key: 'driverName', label: '배송기사명', width: '100px', visible: true },
   ];
   let visibleColumns = loadVisibleColumns();
 
@@ -212,14 +248,15 @@ document.addEventListener('DOMContentLoaded', function () {
   // 주문 데이터에 라벨 추가
   function addLabelsToOrders(orders) {
     return orders.map((order) => ({
-      ...order,
-      statusLabel: statusLabels[order.status] || order.status,
-      typeLabel: typeLabels[order.type] || order.type,
-      // order.order_no가 템플릿에서 사용될 수 있도록 camelCase 변환 추가
-      orderNo: order.order_no,
-      driverName: order.driver_name,
-      // ETA는 ISO 형식 그대로 사용
-      etaFormatted: order.eta || '-',
+      ...order, // API 응답 데이터 그대로 사용
+      statusLabel: statusLabels[order.status] || order.status, // 상태 라벨 변환
+      typeLabel: typeLabels[order.type] || order.type, // 타입 라벨 변환
+      driverName: order.driver_name, // driver_name 사용 유지
+      // 포맷팅된 날짜 필드 추가 (포맷 함수 사용)
+      createTimeFormatted: formatDateTime(order.create_time),
+      etaFormatted: formatDateTime(order.eta),
+      departTimeFormatted: formatDateTime(order.depart_time),
+      completeTimeFormatted: formatDateTime(order.complete_time),
     }));
   }
 
@@ -228,25 +265,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // 1. 필터 적용
     const status = statusFilter.value;
     const department = departmentFilter.value;
-    const driverNameQuery = driverNameFilterInput.value.toLowerCase();
+    const deliveryCompany = deliveryCompanyFilter.value;
 
     filteredOrders = allOrders.filter((order) => {
       const statusMatch = !status || order.status === status;
       const departmentMatch = !department || order.department === department;
-      const driverNameMatch =
-        !driverNameQuery ||
-        (order.driverName &&
-          order.driverName.toLowerCase().includes(driverNameQuery));
-      return statusMatch && departmentMatch && driverNameMatch;
+      const deliveryCompanyMatch =
+        !deliveryCompany || order.delivery_company === deliveryCompany;
+      return statusMatch && departmentMatch && deliveryCompanyMatch;
     });
 
-    // ETA 정렬 적용
-    if (etaSortDirection) {
+    // 모든 컬럼에 대해 정렬 적용 (일반화된 로직)
+    if (sortField && sortDirection) {
       filteredOrders.sort((a, b) => {
         const dateA = a.eta ? new Date(a.eta) : new Date(0);
         const dateB = b.eta ? new Date(b.eta) : new Date(0);
 
-        if (etaSortDirection === 'asc') {
+        if (sortDirection === 'asc') {
           return dateA - dateB;
         } else {
           return dateB - dateA;
@@ -286,9 +321,12 @@ document.addEventListener('DOMContentLoaded', function () {
     orders.forEach((order) => {
       const statusClass = `status-${order.status.toLowerCase()}`;
       const orderId = order.dashboard_id;
+      const orderNo = order.order_no; // 주문번호 가져오기
 
-      // 상태 클래스와 선택 클래스를 행에 적용
-      let rowHTML = `<tr data-id="${orderId}" class="order-row ${statusClass}">`;
+      // data-id 와 함께 data-order-no, data-status 속성 추가
+      let rowHTML = `<tr data-id="${orderId}" data-order-no="${orderNo}" data-status="${order.status}" class="order-row ${statusClass}">`;
+      // 첫 번째 셀로 개별 체크박스 추가
+      rowHTML += `<td><input type="checkbox" class="rowCheckbox" data-id="${orderId}" onclick="event.stopPropagation()"></td>`;
 
       Object.keys(visibleColumns)
         .filter((key) => visibleColumns[key])
@@ -296,8 +334,8 @@ document.addEventListener('DOMContentLoaded', function () {
           const column = columnDefinitions.find((col) => col.key === colKey);
           if (!column) return;
 
-          // 주문번호 필드에 복사 버튼 추가
-          if (colKey === 'orderNo') {
+          // 주문번호 필드 추가 (복사 버튼 포함)
+          if (colKey === 'order_no') {
             rowHTML += `<td>
               <div class="order-no-with-copy">
                 <span>${order[colKey] || '-'}</span>
@@ -309,14 +347,30 @@ document.addEventListener('DOMContentLoaded', function () {
               </div>
             </td>`;
           }
-          // 상태 필드는 배지로 표시
+          // 상태 필드 (라벨 사용)
           else if (colKey === 'statusLabel') {
-            rowHTML += `<td><span class="status-badge ${statusClass}">${order[colKey]}</span></td>`;
-          } else if (colKey === 'eta' || colKey === 'etaFormatted') {
-            // ETA는 포맷팅된 값 사용
+            rowHTML += `<td>${order[colKey]}</td>`;
+          }
+          // 타입 필드 (라벨 사용)
+          else if (colKey === 'typeLabel') {
+            rowHTML += `<td>${order[colKey]}</td>`;
+          }
+          // 날짜/시간 필드 (포맷팅된 값 사용)
+          else if (colKey === 'eta') {
             rowHTML += `<td>${order.etaFormatted || '-'}</td>`;
-          } else {
-            // 일반 텍스트 필드
+          } else if (colKey === 'create_time') {
+            rowHTML += `<td>${order.createTimeFormatted || '-'}</td>`;
+          } else if (colKey === 'depart_time') {
+            rowHTML += `<td>${order.departTimeFormatted || '-'}</td>`;
+          } else if (colKey === 'complete_time') {
+            rowHTML += `<td>${order.completeTimeFormatted || '-'}</td>`;
+          }
+          // 배송기사명 (driverName 사용)
+          else if (colKey === 'driverName') {
+            rowHTML += `<td>${order.driverName || '-'}</td>`;
+          }
+          // 기타 필드
+          else {
             rowHTML += `<td>${order[colKey] || '-'}</td>`;
           }
         });
@@ -327,24 +381,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     dashboardTableBody.innerHTML = tableHTML;
 
-    // 행 클릭 이벤트 핸들러 등록
+    // 행 클릭 이벤트 핸들러 등록 (체크박스 영역 클릭 제외)
     const rows = dashboardTableBody.querySelectorAll('tr.order-row');
     rows.forEach((row) => {
       row.addEventListener('click', function (e) {
-        // 체크박스나 복사 버튼 클릭은 별도 처리
+        // 클릭된 요소가 체크박스(input) 또는 체크박스를 포함하는 셀(td)인지 확인
+        const checkboxCell = e.target.closest('td:first-child'); // 첫번째 td
+        const isCheckboxClick =
+          e.target.type === 'checkbox' ||
+          (checkboxCell && checkboxCell.contains(e.target));
+
+        // 복사 버튼 클릭 또는 체크박스 관련 클릭이 아닐 경우에만 상세 페이지 이동
         if (
-          e.target.classList.contains('copy-btn') ||
-          e.target.closest('.copy-btn')
+          !isCheckboxClick &&
+          !e.target.classList.contains('copy-btn') &&
+          !e.target.closest('.copy-btn')
         ) {
-          return;
+          const orderId = this.getAttribute('data-id');
+          if (orderId) {
+            window.location.href = `/orders/${orderId}`;
+          }
         }
-
-        const orderId = this.getAttribute('data-id');
-
-        if (orderId) {
-          // data-id 속성에서 주문 ID를 가져와 상세 페이지로 이동
-          window.location.href = `/orders/${orderId}`;
-        }
+        // 체크박스 클릭 시에는 dashboard_batch_actions.js 에서 처리됨
       });
     });
   }
@@ -353,67 +411,43 @@ document.addEventListener('DOMContentLoaded', function () {
   function renderTableHeader() {
     if (!dashboardTableHead) return;
     let headerHTML = '<tr>';
+    // 첫 번째 컬럼으로 전체 선택 체크박스 추가
+    headerHTML +=
+      '<th width="40px"><input type="checkbox" id="selectAllCheckbox" title="전체 선택/해제"></th>';
+
     columnDefinitions.forEach((col) => {
       // 제거된 컬럼은 렌더링하지 않음
       if (col.key === 'postalCode') return;
       if (visibleColumns[col.key]) {
-        // ETA 컬럼에만 정렬 기능 추가
-        if (col.key === 'eta' && col.sortable) {
-          let sortIcon = '';
-          if (etaSortDirection === 'asc') {
-            sortIcon = '<i class="fa-solid fa-sort-up"></i>';
-          } else if (etaSortDirection === 'desc') {
-            sortIcon = '<i class="fa-solid fa-sort-down"></i>';
-          } else {
-            sortIcon = '<i class="fa-solid fa-sort"></i>';
-          }
-
-          headerHTML += `
-            <th width="${col.width}" class="sortable-header" data-sort="eta">
-              ${col.label} ${sortIcon}
-            </th>`;
-        } else {
-          headerHTML += `<th width="${col.width}">${col.label}</th>`;
-        }
+        // 헤더 HTML 생성 시 정렬 가능한 컬럼 처리
+        headerHTML += `
+          <th width="${col.width}" ${
+          col.sortable ? `class="sortable-header" data-sort="${col.key}"` : ''
+        }>
+            ${col.label} ${col.sortable ? getSortIcon(col.key) : ''}
+          </th>`;
       }
     });
     headerHTML += '</tr>';
     dashboardTableHead.innerHTML = headerHTML;
 
-    // ETA 헤더에 정렬 이벤트 추가
-    const etaHeader = dashboardTableHead.querySelector(
-      '.sortable-header[data-sort="eta"]'
-    );
-    if (etaHeader) {
-      etaHeader.addEventListener('click', function () {
-        // 정렬 방향 순환: null -> asc -> desc -> null
-        if (!etaSortDirection) {
-          etaSortDirection = 'asc';
-        } else if (etaSortDirection === 'asc') {
-          etaSortDirection = 'desc';
-        } else {
-          etaSortDirection = null;
-        }
-
-        // 헤더 다시 그리고 데이터 정렬
-        renderTableHeader();
-        applyFiltersAndRender();
-      });
-    }
+    // 전체 선택 체크박스 이벤트 리스너는 batch_actions.js 에서 처리
+    // ... (기존 정렬 헤더 이벤트 리스너)
   }
 
   // 빈 결과 행 HTML 생성
   function renderEmptyRow(message) {
-    const colspan = Object.values(visibleColumns).filter((v) => v).length;
+    // 체크박스 컬럼 추가로 colspan 1 증가
+    const colspan = Object.values(visibleColumns).filter((v) => v).length + 1;
     return `
-          <tr class="empty-data-row">
-            <td colspan="${colspan}" class="empty-table">
-            <div class="empty-placeholder">
-              <i class="fa-solid fa-inbox"></i>
-                <p>${message}</p>
-            </div>
-          </td>
-          </tr>`;
+      <tr class="empty-data-row">
+        <td colspan="${colspan}" class="empty-table">
+        <div class="empty-placeholder">
+          <i class="fa-solid fa-inbox"></i>
+            <p>${message}</p>
+        </div>
+      </td>
+      </tr>`;
   }
 
   // 페이지네이션 UI 업데이트
@@ -549,6 +583,23 @@ document.addEventListener('DOMContentLoaded', function () {
     return { startDate: null, endDate: null };
   }
 
+  // 날짜/시간 포맷 함수
+  function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    try {
+      const date = new Date(isoString);
+      // YYYY-MM-DD HH:MM 형식
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch (e) {
+      return '-'; // 파싱 오류 시
+    }
+  }
+
   // --- 이벤트 리스너 설정 ---
   function setupEventListeners() {
     // 날짜 및 필터링 관련 이벤트
@@ -613,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fetchAllOrders(today, today);
     });
 
-    // 필터 변경 (상태, 부서)
+    // 필터 변경 (상태, 부서, 배송사)
     statusFilter?.addEventListener('change', () => {
       currentPage = 1; // 필터 변경 시 첫 페이지로
       applyFiltersAndRender();
@@ -624,11 +675,16 @@ document.addEventListener('DOMContentLoaded', function () {
       applyFiltersAndRender();
     });
 
+    deliveryCompanyFilter?.addEventListener('change', () => {
+      currentPage = 1;
+      applyFiltersAndRender();
+    });
+
     // 필터 초기화
     resetFilterBtn?.addEventListener('click', () => {
       statusFilter.value = '';
       departmentFilter.value = '';
-      driverNameFilterInput.value = '';
+      deliveryCompanyFilter.value = '';
       // 검색 결과 상태 해제 (선택적)
       if (paginationControls.style.display === 'none') {
         paginationControls.style.display = ''; // 페이지네이션 다시 표시
@@ -642,12 +698,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // 새로고침 버튼
     refreshBtn?.addEventListener('click', () => {
       fetchAllOrders(startDateInput.value, endDateInput.value);
-    });
-
-    // 기사명 필터 입력 이벤트 리스너 추가 (실시간 필터링)
-    driverNameFilterInput?.addEventListener('input', () => {
-      currentPage = 1; // 필터 변경 시 첫 페이지로
-      applyFiltersAndRender();
     });
   }
 
@@ -759,6 +809,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // --- 초기화 실행 ---
   initDashboard();
+
+  // --- 전역 노출 (다른 스크립트에서 사용하기 위해) ---
+  window.fetchAllOrders = fetchAllOrders; // 테이블 새로고침 함수
+  window.startDateInput = startDateInput; // 시작일 input 요소
+  window.endDateInput = endDateInput; // 종료일 input 요소
 });
 
 /**

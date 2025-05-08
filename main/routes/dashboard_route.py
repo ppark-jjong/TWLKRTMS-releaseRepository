@@ -40,7 +40,6 @@ from main.schema.dashboard_schema import (
     DashboardResponse,
     DashboardListResponse,
     DashboardDeleteRequest,
-    LockStatusResponse,
 )
 from main.service.dashboard_service import (
     get_dashboard_by_id,
@@ -57,7 +56,7 @@ from main.service.dashboard_service import (
     get_dashboard_by_order_no,
 )
 from main.utils.json_util import CustomJSONEncoder
-from main.utils.lock import acquire_lock, release_lock, check_lock_status
+from pydantic import BaseModel  # Pydantic 모델 사용 위해 추가
 
 # 로깅 설정
 logging.basicConfig(
@@ -75,7 +74,23 @@ logger = logging.getLogger(__name__)
 api_router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 page_router = APIRouter(dependencies=[Depends(get_current_user)])
 
-# 상태 및 유형 라벨 매핑
+# --- 상태 전이 규칙 (JS와 동일하게 유지 - 재정의된 규칙) ---
+status_transitions = {  # 일반 사용자
+    "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+    "IN_PROGRESS": ["COMPLETE", "ISSUE", "CANCEL"],
+    "COMPLETE": ["ISSUE", "CANCEL"],
+    "ISSUE": ["COMPLETE", "CANCEL"],
+    "CANCEL": ["COMPLETE", "ISSUE"],
+}
+admin_status_transitions = {  # 관리자
+    "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+    "IN_PROGRESS": ["WAITING", "COMPLETE", "ISSUE", "CANCEL"],
+    "COMPLETE": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+    "ISSUE": ["IN_PROGRESS", "COMPLETE", "CANCEL"],
+    "CANCEL": ["IN_PROGRESS", "COMPLETE", "ISSUE"],
+}
+
+# --- 상태 라벨 (JS와 공유 또는 백엔드에서만 사용) ---
 status_labels = {
     "WAITING": "대기",
     "IN_PROGRESS": "진행",
@@ -83,7 +98,14 @@ status_labels = {
     "ISSUE": "이슈",
     "CANCEL": "취소",
 }
-type_labels = {"DELIVERY": "배송", "RETURN": "회수"}
+
+
+def get_next_possible_statuses(current_status: str, is_admin: bool) -> List[str]:
+    """현재 상태와 사용자 역할에 따라 다음 가능한 상태 목록 반환 (재정의된 규칙 사용)"""
+    if is_admin:
+        return admin_status_transitions.get(current_status, [])
+    else:
+        return status_transitions.get(current_status, [])
 
 
 # === 유틸리티 함수 ===
@@ -113,51 +135,6 @@ def handle_redirect_success(
     return RedirectResponse(
         f"{redirect_url}?success={encoded_message}", status_code=status_code
     )
-
-
-def try_lock_operation(
-    db: Session, operation_func, table_name: str, row_id: int, user_id: str, **kwargs
-) -> Tuple[bool, Dict[str, Any]]:
-    """
-    락 획득 및 작업 수행을 시도하는 헬퍼 함수
-
-    Args:
-        db: 데이터베이스 세션
-        operation_func: 수행할 작업 함수 (락 보유 상태에서 호출됨)
-        table_name: 락을 획득할 테이블 이름
-        row_id: 락을 획득할 행 ID
-        user_id: 락을 획득하려는 사용자 ID
-        **kwargs: 작업 함수에 전달할 추가 인자
-
-    Returns:
-        Tuple[bool, Dict]: (성공 여부, 결과 또는 오류 메시지)
-    """
-    lock_acquired = False
-    try:
-        # 락 획득 시도
-        lock_acquired, lock_info = acquire_lock(db, table_name, row_id, user_id)
-        if not lock_acquired:
-            return False, {
-                "success": False,
-                "message": lock_info.get("message", "락 획득 실패"),
-                "status_code": status.HTTP_423_LOCKED,
-            }
-
-        # 작업 수행
-        result = operation_func(db=db, row_id=row_id, user_id=user_id, **kwargs)
-        return True, {"success": True, "data": result}
-
-    except Exception as e:
-        logger.error(f"작업 수행 중 오류: {str(e)}", exc_info=True)
-        return False, {"success": False, "message": str(e)}
-
-    finally:
-        # 락 해제 시도
-        if lock_acquired:
-            try:
-                release_lock(db, table_name, row_id, user_id)
-            except Exception as e:
-                logger.error(f"락 해제 중 오류: {str(e)}", exc_info=True)
 
 
 # === 페이지 렌더링 라우트 ===
@@ -537,33 +514,96 @@ async def search_order_api(
         )
 
 
-@api_router.get("/orders/lock/{dashboard_id}", response_model=LockStatusResponse)
-async def check_order_lock_api(
-    dashboard_id: int = Path(..., ge=1, description="락 상태 확인할 주문 ID"),
+# === 추가: 일괄 처리 API ===
+
+
+class BatchStatusUpdateRequest(BaseModel):
+    dashboard_ids: List[int]
+    new_status: str
+
+
+@api_router.post(
+    "/orders/batch-status-update",
+    summary="선택된 주문들의 상태 일괄 변경",
+    response_model=List[Dict[str, Any]],
+)
+@db_transaction
+async def batch_update_order_status(
+    request: Request,
+    update_request: BatchStatusUpdateRequest,
     db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
+    """선택된 주문 ID 목록을 받아 상태를 일괄 변경합니다."""
+    user_id = current_user.get("user_id")
+    user_role = current_user.get("user_role")
     logger.info(
-        f"주문 락 상태 확인 API 요청: id={dashboard_id}, user={current_user.get('user_id')}"
+        f"상태 일괄 변경 요청: IDs {update_request.dashboard_ids}, NewStatus {update_request.new_status}, User {user_id}"
     )
+
     try:
-        # 서비스의 get_lock_status 대신 utils의 check_lock_status 직접 사용
-        lock_info = check_lock_status(
+        results = change_status(
             db=db,
-            table_name="dashboard",
-            row_id=dashboard_id,
-            user_id=current_user.get("user_id"),
+            dashboard_ids=update_request.dashboard_ids,
+            new_status=update_request.new_status,
+            user_id=user_id,
+            user_role=user_role,
         )
-        # check_lock_status 반환값이 LockStatusResponse 스키마와 호환되는지 확인 필요
-        # 현재 check_lock_status는 필요한 필드를 포함한 dict를 반환하므로 스키마에 맞게 변환 불필요
-        return lock_info
+        # 성공/실패 여부에 따라 적절한 상태 코드 반환 고려 (예: 일부만 성공 시 207 Multi-Status)
+        # 여기서는 일단 모든 결과를 200 OK로 반환
+        return JSONResponse(content=results)
     except HTTPException as http_exc:
+        # change_status 내에서 발생하는 권한 오류 등
+        logger.warning(f"상태 일괄 변경 중 HTTP 오류: {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        logger.error(f"주문 락 상태 확인 API 오류: {e}", exc_info=True)
-        # 스키마 기본값으로 실패 응답 생성 시도
-        return LockStatusResponse(
-            success=False, editable=False, message="락 상태 확인 중 서버 오류 발생"
+        logger.error(f"상태 일괄 변경 중 서버 오류: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="상태 일괄 변경 중 서버 오류 발생",
+        )
+
+
+class BatchDriverAssignRequest(BaseModel):
+    dashboard_ids: List[int]
+    driver_name: str
+    driver_contact: Optional[str] = None
+    delivery_company: Optional[str] = None
+
+
+@api_router.post(
+    "/orders/batch-driver-assign",
+    summary="선택된 주문들에 기사/배송사 일괄 할당",
+    response_model=List[Dict[str, Any]],
+)
+@db_transaction
+async def batch_assign_driver_company(
+    request: Request,
+    assign_request: BatchDriverAssignRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """선택된 주문 ID 목록을 받아 기사 정보 및 배송사를 일괄 할당합니다."""
+    user_id = current_user.get("user_id")
+    logger.info(
+        f"기사/배송사 일괄 할당 요청: IDs {assign_request.dashboard_ids}, Driver {assign_request.driver_name}, Company {assign_request.delivery_company}, User {user_id}"
+    )
+
+    try:
+        results = assign_driver(
+            db=db,
+            dashboard_ids=assign_request.dashboard_ids,
+            driver_name=assign_request.driver_name,
+            driver_contact=assign_request.driver_contact,
+            delivery_company=assign_request.delivery_company,
+            user_id=user_id,
+        )
+        return JSONResponse(content=results)
+    except Exception as e:
+        logger.error(f"기사/배송사 일괄 할당 중 서버 오류: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="기사/배송사 일괄 할당 중 서버 오류 발생",
         )
 
 
@@ -613,11 +653,6 @@ async def order_detail_page(
             logger.warning(f"주문 상세 로드 중 오류: 404, 주문을 찾을 수 없습니다.")
             raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다.")
 
-        # 락 상태 확인
-        lock_status = check_lock_status(
-            db, "dashboard", dashboard_id, current_user.get("user_id")
-        )
-
         # 주문 데이터를 응답용 형식으로 변환
         # 객체를 딕셔너리로 변환하여 템플릿에서 접근 가능하게 함
         order_data = get_dashboard_response_data(order)
@@ -653,7 +688,6 @@ async def order_detail_page(
             "request": request,
             "current_user": current_user,
             "order": order_data,  # 딕셔너리 형태로 전달
-            "lock_status": lock_status,
             "error_message": error_message,
             "success_message": success_message,
             "current_user_role": current_user.get("user_role"),  # 추가: 권한 정보
@@ -705,85 +739,7 @@ async def order_edit_page(
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
-        # 먼저 현재 락 상태 확인
-        lock_status = check_lock_status(db, "dashboard", dashboard_id, user_id)
-
-        # 이미 내가 락을 가지고 있는 경우 새로 획득할 필요 없음
-        if (
-            lock_status.get("success")
-            and lock_status.get("editable")
-            and lock_status.get("locked")
-        ):
-            if lock_status.get("locked_by") == user_id:
-                logger.info(
-                    f"주문 수정 페이지: 이미 본인({user_id})의 락이 있어 재사용: id={dashboard_id}"
-                )
-                # 락 시간 갱신 (락 만료 방지)
-                try:
-                    from main.utils.lock import _update_lock
-
-                    _update_lock(db, "dashboard", dashboard_id, user_id, True, True)
-                except Exception as e:
-                    logger.warning(f"락 시간 갱신 실패: {str(e)}")
-
-                # 이미 락을 가지고 있으므로 그대로 진행
-                # 주문 정보 dict로 변환
-                dashboard_data = get_dashboard_response_data(dashboard)
-
-                # 필수 datetime 필드 추가
-                dashboard_data["create_time"] = (
-                    dashboard.create_time.isoformat() if dashboard.create_time else None
-                )
-                dashboard_data["depart_time"] = (
-                    dashboard.depart_time.isoformat() if dashboard.depart_time else None
-                )
-                dashboard_data["complete_time"] = (
-                    dashboard.complete_time.isoformat()
-                    if dashboard.complete_time
-                    else None
-                )
-
-                # ETA ISO 8601 형식 변환 (YYYY-MM-DDTHH:MM)
-                if dashboard.eta:
-                    dashboard_data["eta"] = dashboard.eta.isoformat()
-
-                # 템플릿 컨텍스트 설정
-                context = {
-                    "request": request,
-                    "order": dashboard_data,
-                    "current_user": current_user,
-                    "is_edit": True,
-                    "error_message": request.query_params.get("error"),
-                    "success_message": request.query_params.get("success"),
-                }
-
-                return templates.TemplateResponse("order_form.html", context)
-
-        # 다른 락이 있거나 락이 없는 경우 새로 획득 시도
-        success, message = acquire_lock(db, "dashboard", dashboard_id, user_id)
-
-        if not success:
-            # 락 획득 실패 시 상세 페이지로 리다이렉트
-            error_msg = message.get("message", "현재 다른 사용자가 수정 중입니다.")
-            locked_by = message.get("locked_by", "다른 사용자")
-            locked_at = message.get("locked_at")
-
-            if locked_at:
-                try:
-                    locked_at_str = locked_at.strftime("%Y-%m-%d %H:%M")
-                    error_msg = f"{locked_by}님이 {locked_at_str}부터 수정 중입니다."
-                except:
-                    # 시간 형식 변환 실패 시 기본 메시지 유지
-                    pass
-
-            logger.warning(f"주문 수정 락 획득 실패: {error_msg}")
-            error_message = quote(error_msg)
-            return RedirectResponse(
-                f"{detail_url}?error={error_message}",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
-
-        # 락 획득 성공, 주문 정보 dict로 변환
+        # 주문 정보 dict로 변환
         dashboard_data = get_dashboard_response_data(dashboard)
 
         # 필수 datetime 필드 추가
@@ -809,6 +765,7 @@ async def order_edit_page(
             "is_edit": True,
             "error_message": request.query_params.get("error"),
             "success_message": request.query_params.get("success"),
+            "version": dashboard.version,  # 버전 정보 추가
         }
 
         return templates.TemplateResponse("order_form.html", context)
@@ -818,12 +775,6 @@ async def order_edit_page(
         logger.warning(
             f"주문 수정 페이지 HTTP 예외: {http_exc.status_code}, {http_exc.detail}"
         )
-        try:
-            # 예외 발생 시 획득한 락이 있으면 해제 시도
-            release_lock(db, "dashboard", dashboard_id, user_id)
-        except Exception as e:
-            logger.error(f"예외 처리 중 락 해제 실패: {str(e)}")
-
         error_message = quote(http_exc.detail)
         return RedirectResponse(
             f"{detail_url}?error={error_message}",
@@ -832,12 +783,6 @@ async def order_edit_page(
     except Exception as e:
         # 기타 예외 처리
         logger.error(f"주문 수정 페이지 로드 중 예외 발생: {str(e)}", exc_info=True)
-        try:
-            # 예외 발생 시 획득한 락이 있으면 해제 시도
-            release_lock(db, "dashboard", dashboard_id, user_id)
-        except Exception as release_err:
-            logger.error(f"예외 처리 중 락 해제 실패: {str(release_err)}")
-
         error_message = quote("페이지 로드 중 오류가 발생했습니다")
         return RedirectResponse(
             f"{detail_url}?error={error_message}",
@@ -867,6 +812,8 @@ async def update_order_action(
     status_val: Optional[str] = Form(None, alias="status"),
     driver_name: Optional[str] = Form(None),
     driver_contact: Optional[str] = Form(None),
+    delivery_company: Optional[str] = Form(None),
+    version: int = Form(..., description="수정 대상의 현재 버전"),
 ):
     user_id = current_user.get("user_id")
     logger.info(f"주문 수정 API 요청: id={dashboard_id}, user={user_id}")
@@ -876,28 +823,29 @@ async def update_order_action(
     edit_url = f"/orders/{dashboard_id}/edit"
 
     try:
-        # 락 상태 확인 - 내가 락을 가지고 있는지 먼저 확인
-        lock_status = check_lock_status(db, "dashboard", dashboard_id, user_id)
-
-        if not lock_status.get("success") or not lock_status.get("editable"):
-            # 락 소유 검사 실패, 423 응답 또는 상세 페이지로 리다이렉트
-            error_msg = lock_status.get(
-                "message", "다른 사용자가 수정 중이거나 락이 만료되었습니다."
+        # 현재 DB 버전 확인
+        current_order = get_dashboard_by_id(db, dashboard_id)
+        if not current_order:
+            # 서비스 함수에서도 동일한 체크가 있지만, 버전 비교 전에 확인하는 것이 좋음
+            raise HTTPException(
+                status_code=404, detail="수정할 주문을 찾을 수 없습니다."
             )
-            logger.warning(f"주문 수정 API 락 검증 실패: {error_msg}")
 
-            # API 호출인 경우 JSON 응답, 일반 폼 제출인 경우 리다이렉트
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return JSONResponse(
-                    status_code=status.HTTP_423_LOCKED,
-                    content={"success": False, "message": error_msg},
-                )
-            else:
-                error_message = quote(error_msg)
-                return RedirectResponse(
-                    f"{detail_url}?error={error_message}",
-                    status_code=status.HTTP_303_SEE_OTHER,
-                )
+        version_mismatch = current_order.version != version
+        if version_mismatch:
+            logger.warning(
+                f"주문 수정 버전 불일치: ID={dashboard_id}, Client Version={version}, DB Version={current_order.version}"
+            )
+            # 경고 메시지에 필요한 정보 (동시 수정 발생 시)
+            concurrent_modifier = current_order.update_by
+            concurrent_update_at = (
+                current_order.update_at.strftime("%Y-%m-%d %H:%M")
+                if current_order.update_at
+                else "알 수 없음"
+            )
+            warning_msg = f"다른 사용자({concurrent_modifier})가 {concurrent_update_at}에 먼저 수정했습니다."
+        else:
+            warning_msg = None
 
         # ETA 파싱
         try:
@@ -942,84 +890,42 @@ async def update_order_action(
             update_data["driver_name"] = driver_name
         if driver_contact:
             update_data["driver_contact"] = driver_contact
+        if delivery_company:
+            update_data["delivery_company"] = delivery_company
 
-        # 서비스 함수 호출 (update_dashboard 함수는 내부에서 락 확인)
+        # 서비스 함수 호출
         result = update_dashboard(db, dashboard_id, update_data, user_id)
-
-        # 락 해제 (finally 블록에서도 수행하지만 명시적으로 성공 시에도 해제)
-        try:
-            release_lock(db, "dashboard", dashboard_id, user_id)
-            logger.info(f"주문 수정 완료 후 락 해제 성공: ID {dashboard_id}")
-        except Exception as release_err:
-            logger.error(f"주문 수정 완료 후 락 해제 실패: {release_err}")
 
         # 성공 응답
         success_msg = "주문이 성공적으로 수정되었습니다."
         logger.info(f"주문 수정 성공: ID {dashboard_id}")
 
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return JSONResponse(
-                content={"success": True, "message": success_msg, "id": dashboard_id}
-            )
-        else:
-            return RedirectResponse(
-                f"{detail_url}?success={quote(success_msg)}",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
+        # 리다이렉트 URL 생성 (warning 포함 가능)
+        redirect_url = f"{detail_url}?success={quote(success_msg)}"
+        if version_mismatch and warning_msg:  # 버전 불일치 시 경고 메시지 추가
+            redirect_url += f"&warning={quote(warning_msg)}"
+
+        # RedirectResponse 반환으로 복원
+        return RedirectResponse(redirect_url, status_code=status.HTTP_303_SEE_OTHER)
 
     except HTTPException as http_exc:
+        # HTTP 예외 발생 시 리다이렉트 (오류 메시지 포함)
         logger.warning(
             f"주문 수정 API HTTP 오류: {http_exc.status_code}, {http_exc.detail}"
         )
-        if http_exc.status_code == 423:  # Locked
-            # 락 관련 오류
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return JSONResponse(
-                    status_code=http_exc.status_code,
-                    content={"success": False, "message": http_exc.detail},
-                )
-            else:
-                return RedirectResponse(
-                    f"{detail_url}?error={quote(http_exc.detail)}",
-                    status_code=status.HTTP_303_SEE_OTHER,
-                )
-        else:
-            # 기타 HTTP 오류
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return JSONResponse(
-                    status_code=http_exc.status_code,
-                    content={"success": False, "message": http_exc.detail},
-                )
-            else:
-                return RedirectResponse(
-                    f"{edit_url}?error={quote(http_exc.detail)}",
-                    status_code=status.HTTP_303_SEE_OTHER,
-                )
+        # edit_url 로 리다이렉트하며 에러 표시 (기존 방식과 유사하게)
+        error_message = quote(http_exc.detail)
+        return RedirectResponse(
+            f"{edit_url}?error={error_message}", status_code=status.HTTP_303_SEE_OTHER
+        )
+
     except Exception as e:
-        # 기타 예외
         logger.error(f"주문 수정 API 처리 중 예외 발생: {e}", exc_info=True)
         error_message = quote("주문 수정 중 서버 오류가 발생했습니다.")
-
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={
-                    "success": False,
-                    "message": "주문 수정 중 서버 오류가 발생했습니다.",
-                },
-            )
-        else:
-            return RedirectResponse(
-                f"{edit_url}?error={error_message}",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
-    finally:
-        # 락 해제 시도 (작업 성공 여부와 관계없이)
-        try:
-            release_lock(db, "dashboard", dashboard_id, user_id)
-            logger.info(f"주문 수정 finally 블록에서 락 해제 시도: ID {dashboard_id}")
-        except Exception as release_err:
-            logger.error(f"finally 블록에서 락 해제 실패: {release_err}")
+        # edit_url 로 리다이렉트하며 에러 표시
+        return RedirectResponse(
+            f"{edit_url}?error={error_message}", status_code=status.HTTP_303_SEE_OTHER
+        )
 
 
 # --- 주문 삭제 처리 API --- (서비스 호출 및 리다이렉트)
@@ -1109,6 +1015,7 @@ async def create_order_action(
     status_val: Optional[str] = Form("WAITING", alias="status"),  # 기본값 WAITING
     driver_name: Optional[str] = Form(None),
     driver_contact: Optional[str] = Form(None),
+    delivery_company: Optional[str] = Form(None),
 ):
     user_id = current_user.get("user_id")
     logger.info(f"주문 생성 API 요청: user={user_id}, order_no={order_no}")
@@ -1159,6 +1066,8 @@ async def create_order_action(
             create_data["driver_name"] = driver_name
         if driver_contact:
             create_data["driver_contact"] = driver_contact
+        if delivery_company:
+            create_data["delivery_company"] = delivery_company
 
         # create_dashboard 서비스 호출 (Pydantic 모델 객체 생성)
         try:
@@ -1202,76 +1111,99 @@ async def create_order_action(
         )
 
 
-# 페이지 이탈 시 락 해제 API
-@api_router.post("/orders/{dashboard_id}/release-lock", status_code=status.HTTP_200_OK)
-@db_transaction
-async def release_order_lock(
+# === 추가: 일괄 처리 지원 API ===
+
+
+@api_router.get(
+    "/orders/batch-get-common-statuses",
+    summary="선택된 주문들의 공통 변경 가능 상태 조회",
+)
+async def get_batch_common_statuses(
     request: Request,
-    dashboard_id: int = Path(..., ge=1),
+    ids: List[int] = Query(..., description="상태를 조회할 주문 ID 목록"),
     db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    user_id = current_user.get("user_id")
-    logger.info(f"주문 락 해제 API 요청: id={dashboard_id}, user={user_id}")
+    """주어진 주문 ID 목록에 대해 공통적으로 변경 가능한 다음 상태 목록을 반환합니다."""
+    user_role = current_user.get("user_role")
+    is_admin = user_role == "ADMIN"
+    logger.info(
+        f"공통 상태 조회 요청: IDs {ids}, User {current_user.get('user_id')}, Role {user_role}"
+    )
+
+    if not ids:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": "주문 ID가 제공되지 않았습니다.",
+                "common_statuses": [],
+                "labels": {},
+            },
+        )
 
     try:
-        # 락 해제 시도
-        success, message = release_lock(db, "dashboard", dashboard_id, user_id)
+        # 선택된 주문들의 현재 상태 조회
+        orders = (
+            db.query(Dashboard.status).filter(Dashboard.dashboard_id.in_(ids)).all()
+        )
 
-        if success:
-            logger.info(f"주문 락 해제 성공: id={dashboard_id}, user={user_id}")
-            return {"success": True, "message": "락이 성공적으로 해제되었습니다."}
-        else:
-            logger.warning(
-                f"주문 락 해제 실패: id={dashboard_id}, 사유={message.get('message', '알 수 없음')}"
-            )
-            return {"success": False, "message": message.get("message", "락 해제 실패")}
-
-    except Exception as e:
-        logger.error(f"주문 락 해제 API 오류: {str(e)}")
-        return {"success": False, "message": "락 해제 처리 중 오류가 발생했습니다"}
-
-
-@api_router.post("/dashboard/{dashboard_id}/release-lock")
-async def release_dashboard_lock(
-    dashboard_id: int,
-    lock_data: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db),
-    current_user: Dict[str, Any] = Depends(get_current_user),
-):
-    """
-    페이지 이탈 시 호출되는 락 해제 API
-    브라우저 종료, 탭 전환 등 상황에서 사용됨
-    """
-    user_id = current_user.get("user_id")
-    logger.info(f"주문 락 해제 요청: ID={dashboard_id}, 사용자={user_id}")
-
-    try:
-        # 락 확인 및 해제
-        success, message = release_lock(db, "dashboard", dashboard_id, user_id)
-        db.commit()
-
-        if success:
-            logger.info(f"락 해제 성공: 주문 ID {dashboard_id}")
+        if not orders:
             return JSONResponse(
-                status_code=status.HTTP_200_OK,
-                content={"success": True, "message": "락이 성공적으로 해제되었습니다."},
-            )
-        else:
-            logger.warning(
-                f"락 해제 실패: 주문 ID {dashboard_id}, 사유: {message.get('message')}"
-            )
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_404_NOT_FOUND,
                 content={
                     "success": False,
-                    "message": message.get("message", "락 해제 실패"),
+                    "message": "선택된 주문을 찾을 수 없습니다.",
+                    "common_statuses": [],
+                    "labels": {},
                 },
             )
+
+        if len(orders) != len(ids):
+            logger.warning(
+                f"일부 주문 ID를 찾을 수 없음: 요청 {len(ids)}개, 찾음 {len(orders)}개"
+            )
+            # 일부만 찾은 경우 어떻게 처리할지 정책 필요 (여기서는 찾은 것만 기준으로 계산)
+
+        current_statuses = [order.status for order in orders]
+
+        # 각 주문별 다음 가능 상태 목록 계산
+        possible_next_statuses_list = [
+            set(get_next_possible_statuses(status, is_admin))
+            for status in current_statuses
+        ]
+
+        # 모든 목록의 교집합 계산
+        if not possible_next_statuses_list:  # 비어있는 경우 (이론상 발생 안 함)
+            common_next_statuses = set()
+        else:
+            common_next_statuses = possible_next_statuses_list[0]
+            for status_set in possible_next_statuses_list[1:]:
+                common_next_statuses.intersection_update(status_set)
+
+        # 현재 상태들도 결과에 포함할지 여부 결정 (선택)
+        # 예: 현재 WAITING 주문과 IN_PROGRESS 주문을 동시에 선택 시 공통 다음 상태는 ISSUE, CANCEL 뿐
+        # 사용성 측면에서 현재 상태들을 포함시켜주는 것이 좋을 수 있음. (단, 모든 주문이 동일 상태일 때만 의미있음)
+        # 여기서는 교집합 결과만 반환
+
+        common_statuses_list = sorted(list(common_next_statuses))  # 정렬하여 반환
+
+        # 상태 라벨 정보도 함께 반환
+        common_status_labels = {
+            status: status_labels.get(status, status) for status in common_statuses_list
+        }
+
+        logger.info(f"계산된 공통 상태: {common_statuses_list}")
+
+        return {
+            "success": True,
+            "common_statuses": common_statuses_list,
+            "labels": common_status_labels,
+        }
+
     except Exception as e:
-        db.rollback()
-        logger.error(f"락 해제 처리 중 오류: {str(e)}", exc_info=True)
-        return JSONResponse(
+        logger.error(f"공통 상태 조회 중 서버 오류: {e}", exc_info=True)
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"success": False, "message": f"락 해제 중 서버 오류: {str(e)}"},
+            detail="공통 상태 조회 중 서버 오류 발생",
         )

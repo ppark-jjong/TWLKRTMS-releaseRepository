@@ -119,6 +119,7 @@ async def create_new_user(
     db: Session = Depends(get_db),
     current_admin: Dict[str, Any] = Depends(get_admin_user),
     user_id: str = Form(...),
+    user_name: str = Form(...),
     user_password: str = Form(...),
     user_role: str = Form(...),
     user_department: Optional[str] = Form(None),
@@ -132,6 +133,7 @@ async def create_new_user(
         create_user(
             db=db,
             user_id=user_id,
+            user_name=user_name,
             user_password=hashed_password,
             user_role=user_role,
             user_department=user_department,

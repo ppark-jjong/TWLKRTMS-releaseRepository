@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const pageInfo = document.getElementById('pageInfo');
   const prevPageBtn = paginationControls?.querySelector('[data-page="prev"]'); // Optional chaining
   const nextPageBtn = paginationControls?.querySelector('[data-page="next"]'); // Optional chaining
+  const statusFilter = document.getElementById('statusFilter'); // 상태 필터 DOM 요소 추가
   const errorMessageContainer = document.getElementById(
     'errorMessageContainer'
   );
@@ -25,8 +26,28 @@ document.addEventListener('DOMContentLoaded', function () {
   let initialLoadComplete = false;
   let currentTypeFilter = 'all'; // 유형 필터 변수
   let currentDeptFilter = 'all'; // 부서 필터 변수
+  let currentStatusFilter = 'all'; // 상태 필터 변수 추가
   let sortField = 'update_at'; // 정렬 필드 (기본값: update_at)
   let sortDirection = 'desc'; // 정렬 방향 (기본값: 내림차순)
+
+  // 날짜 포맷 함수 (dashboard.js 와 유사하게 추가)
+  function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    try {
+      const date = new Date(isoString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  // 상태 라벨
+  const statusLabels = { OPEN: 'OPEN', CLOSE: 'CLOSE' };
 
   // --- 초기화 함수 ---
   function initHandover() {
@@ -86,13 +107,27 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!sortField) return;
 
     allItems.sort((a, b) => {
-      if (sortField === 'update_at') {
-        const dateA = new Date(a.update_at || 0);
-        const dateB = new Date(b.update_at || 0);
-
-        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      let valA, valB;
+      // 정렬 필드에 따라 값 가져오기
+      if (sortField === 'update_at' || sortField === 'create_time') {
+        // create_time 추가
+        valA = new Date(a[sortField] || 0);
+        valB = new Date(b[sortField] || 0);
+      } else {
+        // 다른 필드는 문자열로 비교 (필요시 확장)
+        valA = a[sortField] || '';
+        valB = b[sortField] || '';
       }
-      return 0;
+
+      // 비교 로직
+      let comparison = 0;
+      if (valA < valB) {
+        comparison = -1;
+      } else if (valA > valB) {
+        comparison = 1;
+      }
+
+      return sortDirection === 'asc' ? comparison : comparison * -1;
     });
   }
 
@@ -100,10 +135,12 @@ document.addEventListener('DOMContentLoaded', function () {
   function applyFiltersAndRender() {
     const selectedType = typeFilter ? typeFilter.value : 'all'; // typeFilter null 체크
     const selectedDept = departmentFilter ? departmentFilter.value : 'all'; // departmentFilter null 체크
+    const selectedStatus = statusFilter ? statusFilter.value : 'all'; // 상태 필터 값 가져오기
     currentTypeFilter = selectedType;
     currentDeptFilter = selectedDept;
+    currentStatusFilter = selectedStatus; // 현재 상태 필터 값 업데이트
     console.log(
-      `Applying filter '${selectedType}' and '${selectedDept}' and rendering page ${currentPage}`
+      `Applying filter type='${selectedType}', dept='${selectedDept}', status='${selectedStatus}' and rendering page ${currentPage}`
     );
 
     filteredItems = allItems.filter((item) => {
@@ -122,8 +159,15 @@ document.addEventListener('DOMContentLoaded', function () {
           : (item.department || '').toLowerCase() ===
             currentDeptFilter.toLowerCase();
 
-      // 두 조건 모두 충족해야 함
-      return typeMatch && deptMatch;
+      // 상태 필터링 추가
+      const statusMatch =
+        currentStatusFilter === 'all'
+          ? true
+          : (item.status || '').toUpperCase() ===
+            currentStatusFilter.toUpperCase();
+
+      // 모든 조건 충족해야 함
+      return typeMatch && deptMatch && statusMatch;
     });
 
     totalItems = filteredItems.length;
@@ -160,9 +204,13 @@ document.addEventListener('DOMContentLoaded', function () {
     headerHTML += '<th class="col-title">제목</th>';
     headerHTML += '<th class="col-type">구분</th>';
     headerHTML += '<th class="col-dept">부서</th>';
+    headerHTML += `<th class="col-date sortable-header" data-sort="create_time">생성일시 ${getSortIcon(
+      'create_time'
+    )}</th>`;
     headerHTML += `<th class="col-date sortable-header" data-sort="update_at">최종수정일 ${getSortIcon(
       'update_at'
     )}</th>`;
+    headerHTML += '<th class="col-status">상태</th>';
     headerHTML += '<th class="col-writer">작성자</th>';
     headerHTML += '</tr>';
 
@@ -202,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!items || items.length === 0) {
       handoverTableBody.innerHTML = `
         <tr class="no-data-row">
-          <td colspan="5" class="no-data-cell">데이터가 없습니다.</td>
+          <td colspan="7" class="no-data-cell">데이터가 없습니다.</td>
         </tr>
       `;
       console.log('No items to render');
@@ -214,32 +262,26 @@ document.addEventListener('DOMContentLoaded', function () {
       // 필요한 데이터 추출 및 포맷
       const id = item.handover_id || '';
       const title = item.title || '';
-      const updateAt = item.update_at
-        ? new Date(item.update_at).toLocaleString('ko-KR', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '';
-      const writer = item.update_by || '';
+      const createAt = formatDateTime(item.create_time);
+      const updateAt = formatDateTime(item.update_at);
+      const creatorName = item.creator_name || '-';
       const department = item.department || 'CS'; // 기본값 CS
+      const statusLabel = statusLabels[item.status] || item.status;
 
       // 공지사항 여부에 따라 스타일 다르게 적용
       const rowClass = item.is_notice ? 'notice-row' : 'handover-row';
-      const typeLabel = item.is_notice
-        ? '<span class="tag notice-tag">공지사항</span>'
-        : '<span class="tag handover-tag">인수인계</span>';
-      const deptLabel = `<span class="tag department-tag">${department}</span>`;
+      const typeText = item.is_notice ? '공지사항' : '인수인계';
+      const deptText = department;
 
       return `
         <tr class="clickable-row ${rowClass}" data-id="${id}">
           <td class="col-title">${title}</td>
-          <td class="col-type">${typeLabel}</td>
-          <td class="col-dept">${deptLabel}</td>
+          <td class="col-type">${typeText}</td>
+          <td class="col-dept">${deptText}</td>
+          <td class="col-date">${createAt}</td>
           <td class="col-date">${updateAt}</td>
-          <td class="col-writer">${writer}</td>
+          <td class="col-status">${statusLabel}</td>
+          <td class="col-writer">${creatorName}</td>
         </tr>
       `;
     });
@@ -282,6 +324,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     departmentFilter?.addEventListener('change', () => {
       currentPage = 1; // 필터 변경 시 첫 페이지로
+      applyFiltersAndRender();
+    });
+
+    statusFilter?.addEventListener('change', () => {
+      // 상태 필터 이벤트 리스너 추가
+      currentPage = 1;
       applyFiltersAndRender();
     });
 

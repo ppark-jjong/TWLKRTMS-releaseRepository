@@ -53,6 +53,7 @@ def get_user_list(
             user_list.append(
                 {
                     "user_id": user.user_id,
+                    "user_name": user.user_name,
                     "user_role": user.user_role,
                     "user_department": user.user_department,
                 }
@@ -74,7 +75,12 @@ def get_user_list(
 
 
 def create_user(
-    db: Session, user_id: str, user_password: str, user_role: str, user_department: str
+    db: Session,
+    user_id: str,
+    user_name: str,
+    user_password: str,
+    user_role: str,
+    user_department: str,
 ) -> User:
     """
     사용자 생성
@@ -91,6 +97,7 @@ def create_user(
         # 새 사용자 생성
         user = User(
             user_id=user_id,
+            user_name=user_name,
             user_password=user_password,
             user_role=user_role,
             user_department=user_department,

@@ -248,3 +248,18 @@
 .inline-btn:active {
   transform: translateY(1px);
 }
+
+/* 페이지 상단 헤더 고정 */
+.page-header {
+  position: sticky;
+  top: 0; /* 화면 상단에 고정 */
+  background-color: var(
+    --background-color,
+    #ffffff
+  ); /* 배경색 지정 (기존 배경과 동일하게) */
+  z-index: 10; /* 다른 요소들 위에 표시 */
+  padding-top: var(--spacing-lg, 1.5rem); /* 기존 패딩 유지 */
+  padding-bottom: var(--spacing-md, 1rem); /* 하단 패딩 조정 */
+  /* 필요시 box-shadow 추가하여 구분감 제공 */
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+}
