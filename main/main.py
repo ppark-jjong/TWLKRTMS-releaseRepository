@@ -52,21 +52,25 @@ templates = Jinja2Templates(directory="main/templates")
 async def lifespan(app: FastAPI):
     # 애플리케이션 시작 시
     logging.info("애플리케이션 시작 (lifespan)...")
-    
+
     # DB 연결 진단 (개선된 버전)
     try:
         from main.utils.diagnostics.db_connection import diagnose_db_connection
+
         connection_success = diagnose_db_connection()
         if not connection_success:
-            logging.warning("데이터베이스 연결 진단 실패 - 애플리케이션 동작에 문제가 발생할 수 있습니다")
+            logging.warning(
+                "데이터베이스 연결 진단 실패 - 애플리케이션 동작에 문제가 발생할 수 있습니다"
+            )
             # 대체 연결 방법 시도
             from main.utils.diagnostics.db_connection import try_direct_mysql_connection
+
             direct_success = try_direct_mysql_connection()
             if direct_success:
                 logging.info("대체 연결 방법으로 데이터베이스 연결 성공")
     except Exception as e:
         logging.error(f"DB 연결 진단 중 오류 발생: {str(e)}")
-    
+
     # 기존 연결 테스트도 유지 (하위 호환성)
     test_db_connection()
 
@@ -197,11 +201,13 @@ app.include_router(handover_route.api_router, tags=["Lock API"])  # 락 API 라�
 # 경로 "/static"으로 접근
 app.mount("/static", StaticFiles(directory="main/static"), name="static")
 
+
 # --- 진단용 엔드포인트 ---
 @app.get("/health", tags=["Diagnostics"])
 async def health_check():
     """간단한 헬스 체크 엔드포인트"""
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
 
 @app.get("/db-test", tags=["Diagnostics"])
 async def db_test():
@@ -210,8 +216,9 @@ async def db_test():
         import socket
         import pymysql
         from main.utils.config import get_settings
+
         settings = get_settings()
-        
+
         results = {
             "vpc_info": {},
             "socket_test": {},
@@ -223,9 +230,9 @@ async def db_test():
                 "database": settings.MYSQL_DATABASE,
                 "gae_env": os.getenv("GAE_ENV", "없음"),
                 "vpc_connector": os.getenv("VPC_CONNECTOR", "없음"),
-            }
+            },
         }
-        
+
         # 1. 소켓 연결 테스트
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -234,19 +241,16 @@ async def db_test():
             result = sock.connect_ex((settings.MYSQL_HOST, settings.MYSQL_PORT))
             connect_time = time.time() - start_time
             sock.close()
-            
+
             results["socket_test"] = {
                 "success": result == 0,
                 "result_code": result,
                 "connect_time": f"{connect_time:.2f}s",
-                "error": "없음" if result == 0 else f"소켓 오류 코드: {result}"
+                "error": "없음" if result == 0 else f"소켓 오류 코드: {result}",
             }
         except Exception as e:
-            results["socket_test"] = {
-                "success": False,
-                "error": str(e)
-            }
-            
+            results["socket_test"] = {"success": False, "error": str(e)}
+
         # 2. 직접 MySQL 연결 테스트
         if results["socket_test"].get("success", False):
             try:
@@ -258,10 +262,10 @@ async def db_test():
                     database=settings.MYSQL_DATABASE,
                     port=settings.MYSQL_PORT,
                     connect_timeout=5,
-                    charset='utf8mb4'
+                    charset="utf8mb4",
                 )
                 connect_time = time.time() - start_time
-                
+
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT VERSION()")
                     version = cursor.fetchone()[0]
@@ -269,34 +273,29 @@ async def db_test():
                     current_user = cursor.fetchone()[0]
                     cursor.execute("SELECT 1")
                     ping = cursor.fetchone()[0]
-                
+
                 conn.close()
-                
+
                 results["mysql_test"] = {
                     "success": True,
                     "version": version,
                     "current_user": current_user,
                     "ping": ping,
-                    "connect_time": f"{connect_time:.2f}s"
+                    "connect_time": f"{connect_time:.2f}s",
                 }
             except Exception as e:
-                results["mysql_test"] = {
-                    "success": False,
-                    "error": str(e)
-                }
-        
+                results["mysql_test"] = {"success": False, "error": str(e)}
+
         # 3. 현재 환경 정보
         try:
             local_ip = socket.gethostbyname(socket.gethostname())
             results["vpc_info"] = {
                 "local_ip": local_ip,
-                "hostname": socket.gethostname()
+                "hostname": socket.gethostname(),
             }
         except Exception as e:
-            results["vpc_info"] = {
-                "error": str(e)
-            }
-            
+            results["vpc_info"] = {"error": str(e)}
+
         return results
     except Exception as e:
         return {"error": str(e), "traceback": traceback.format_exc()}
