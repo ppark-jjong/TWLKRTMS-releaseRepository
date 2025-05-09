@@ -7,7 +7,7 @@
 
 ## 1. Project Summary
 
-The TWLKR Real-Time Delivery Control System is an enterprise application designed to streamline delivery operations through efficient order management and driver assignment. The system provides a centralized platform for tracking deliveries, managing dispatch operations, and facilitating handover communications between team members.
+The TWLKR TMS System is an enterprise application designed to streamline delivery operations through efficient order management and driver assignment. The system provides a centralized platform for tracking deliveries, managing dispatch operations, and facilitating handover communications between team members.
 
 ### Key Features:
 - **Real-time delivery tracking** with ETA-based order management
