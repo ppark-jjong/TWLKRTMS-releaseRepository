@@ -236,7 +236,7 @@ def create_dashboard(db: Session, data: DashboardCreate, user_id: str) -> Dashbo
 def update_dashboard(
     db: Session, dashboard_id: int, data: Dict[str, Any], user_id: str
 ) -> Dashboard:
-    """주문 업데이트 및 락 관리, 상태 변경 시 시간 자동 업데이트"""
+    """주문 업데이트 상태 변경 시 시간 자동 업데이트"""
     # update_order_action API 에서 호출 시 data는 DashboardUpdate 모델의 dict 형태
 
     try:
@@ -265,71 +265,86 @@ def update_dashboard(
             old_status = order.status
             new_status = update_fields["status"]
             now = datetime.now()
+            logger.info(
+                f"DEBUG (update_dashboard entry): Order ID {dashboard_id}, Old Status: {old_status}, New Status: {new_status}, Current depart_time: {order.depart_time}, Current complete_time: {order.complete_time}"
+            )
 
-            # --- 시간 값 설정/초기화 로직 개선 ---
-            # 1. 순방향 변경
-            if old_status == "WAITING" and new_status == "IN_PROGRESS":
-                # WAITING → IN_PROGRESS: depart_time 설정
-                order.depart_time = now
+            # 시나리오 1: COMPLETE, ISSUE, CANCEL 상태들 간의 변경 (서로 다른 상태로 변경 시)
+            if (
+                old_status in ["COMPLETE", "ISSUE", "CANCEL"]
+                and new_status in ["COMPLETE", "ISSUE", "CANCEL"]
+                and old_status != new_status
+            ):
                 logger.info(
-                    f"주문 ID {dashboard_id}: 상태 변경(IN_PROGRESS), depart_time 설정: {now}"
+                    f"DEBUG (update_dashboard): SCENARIO 1 - ({old_status} -> {new_status}) for order ID {dashboard_id}. Updating complete_time."
                 )
-
-            elif old_status == "IN_PROGRESS" and new_status == "COMPLETE":
-                # IN_PROGRESS → COMPLETE: complete_time 설정
                 order.complete_time = now
-                # depart_time이 없으면 현재 시간으로 설정 (비정상 상태 보정)
+
+            # 시나리오 2: WAITING -> IN_PROGRESS
+            elif old_status == "WAITING" and new_status == "IN_PROGRESS":
+                logger.info(
+                    f"DEBUG (update_dashboard): SCENARIO 2 - WAITING -> IN_PROGRESS for order ID {dashboard_id}."
+                )
+                order.depart_time = now
+
+            # 시나리오 3: IN_PROGRESS -> COMPLETE
+            elif old_status == "IN_PROGRESS" and new_status == "COMPLETE":
+                logger.info(
+                    f"DEBUG (update_dashboard): SCENARIO 3 - IN_PROGRESS -> COMPLETE for order ID {dashboard_id}."
+                )
                 if order.depart_time is None:
-                    order.depart_time = now
                     logger.info(
-                        f"주문 ID {dashboard_id}: 상태 변경(COMPLETE) 시 누락된 depart_time 자동 설정: {now}"
+                        f"DEBUG (update_dashboard): Correcting missing depart_time for order ID {dashboard_id} during IN_PROGRESS -> COMPLETE."
                     )
-                logger.info(
-                    f"주문 ID {dashboard_id}: 상태 변경(COMPLETE), complete_time 설정: {now}"
-                )
+                    order.depart_time = now
+                order.complete_time = now
 
-            # 2. 역방향 변경
+            # 시나리오 4: IN_PROGRESS -> ISSUE 또는 CANCEL
+            elif old_status == "IN_PROGRESS" and new_status in ["ISSUE", "CANCEL"]:
+                logger.info(
+                    f"DEBUG (update_dashboard): SCENARIO 4 - IN_PROGRESS -> {new_status} for order ID {dashboard_id}."
+                )
+                if order.depart_time is None:
+                    logger.info(
+                        f"DEBUG (update_dashboard): Correcting missing depart_time for order ID {dashboard_id} during IN_PROGRESS -> {new_status}."
+                    )
+                    order.depart_time = now
+                order.complete_time = now
+
+            # 시나리오 5: COMPLETE -> IN_PROGRESS (역방향)
             elif old_status == "COMPLETE" and new_status == "IN_PROGRESS":
-                # COMPLETE → IN_PROGRESS: complete_time 초기화
-                order.complete_time = None
                 logger.info(
-                    f"주문 ID {dashboard_id}: 상태 롤백(COMPLETE→IN_PROGRESS), complete_time 초기화"
+                    f"DEBUG (update_dashboard): SCENARIO 5 - COMPLETE -> IN_PROGRESS for order ID {dashboard_id}."
                 )
+                order.complete_time = None
 
+            # 시나리오 6: IN_PROGRESS -> WAITING (역방향)
             elif old_status == "IN_PROGRESS" and new_status == "WAITING":
-                # IN_PROGRESS → WAITING: depart_time 초기화
+                logger.info(
+                    f"DEBUG (update_dashboard): SCENARIO 6 - IN_PROGRESS -> WAITING for order ID {dashboard_id}."
+                )
                 order.depart_time = None
                 order.complete_time = None
-                logger.info(
-                    f"주문 ID {dashboard_id}: 상태 롤백(IN_PROGRESS→WAITING), 모든 시간 초기화"
-                )
 
-            # 3. ISSUE/CANCEL에서 변경
+            # 시나리오 7: ISSUE 또는 CANCEL 에서 WAITING 또는 IN_PROGRESS 로 변경
             elif old_status in ["ISSUE", "CANCEL"]:
                 if new_status == "WAITING":
-                    # ISSUE/CANCEL → WAITING: 모든 시간 초기화
+                    logger.info(
+                        f"DEBUG (update_dashboard): SCENARIO 7a - {old_status} -> WAITING for order ID {dashboard_id}."
+                    )
                     order.depart_time = None
                     order.complete_time = None
-                    logger.info(
-                        f"주문 ID {dashboard_id}: 상태 변경({old_status}→WAITING), 모든 시간 초기화"
-                    )
-
                 elif new_status == "IN_PROGRESS":
-                    # ISSUE/CANCEL → IN_PROGRESS: complete_time 초기화, depart_time 현재 시간
-                    order.depart_time = now  # 진행 중으로 변경 시 출발 시간 설정
+                    logger.info(
+                        f"DEBUG (update_dashboard): SCENARIO 7b - {old_status} -> IN_PROGRESS for order ID {dashboard_id}."
+                    )
+                    order.depart_time = now
                     order.complete_time = None
-                    logger.info(
-                        f"주문 ID {dashboard_id}: 상태 변경({old_status}→IN_PROGRESS), depart_time 설정: {now}, complete_time 초기화"
-                    )
 
-            # 4. WAITING/IN_PROGRESS에서 ISSUE/CANCEL로 변경 시 시간 유지 (기존 시간 기록 보존)
-            elif new_status in ["ISSUE", "CANCEL"]:
-                # complete_time이 없고 IN_PROGRESS에서 오는 경우에만 자동 설정
-                if old_status == "IN_PROGRESS" and order.complete_time is None:
-                    order.complete_time = now
-                    logger.info(
-                        f"주문 ID {dashboard_id}: 상태 변경(IN_PROGRESS→{new_status}), complete_time 설정: {now}"
-                    )
+            else:
+                logger.warning(
+                    f"DEBUG (update_dashboard): UNHANDLED or FALLTHROUGH status transition for order ID {dashboard_id} from {old_status} to {new_status}."
+                )
 
         # 우편번호 변경 시 처리
         if (
@@ -383,14 +398,14 @@ def change_status(
 
     # 재정의된 상태 전이 규칙 (백엔드용)
     status_transitions = {  # 일반 사용자
-        "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+        "WAITING": ["IN_PROGRESS"],  # ISSUE, CANCEL 제거
         "IN_PROGRESS": ["COMPLETE", "ISSUE", "CANCEL"],
         "COMPLETE": ["ISSUE", "CANCEL"],
         "ISSUE": ["COMPLETE", "CANCEL"],
         "CANCEL": ["COMPLETE", "ISSUE"],
     }
     admin_status_transitions = {  # 관리자
-        "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+        "WAITING": ["IN_PROGRESS"],  # ISSUE, CANCEL 제거
         "IN_PROGRESS": ["WAITING", "COMPLETE", "ISSUE", "CANCEL"],
         "COMPLETE": [
             "IN_PROGRESS",
@@ -473,15 +488,25 @@ def change_status(
             elif (
                 old_status in ["COMPLETE", "ISSUE", "CANCEL"]
                 and new_status == "IN_PROGRESS"
-            ):
+            ):  # COMPLETE, ISSUE, CANCEL -> IN_PROGRESS (주로 관리자)
                 order.complete_time = None  # 완료시간만 초기화
-            elif old_status == "IN_PROGRESS" and new_status == "WAITING":
+            elif (
+                old_status == "IN_PROGRESS" and new_status == "WAITING"
+            ):  # IN_PROGRESS -> WAITING (주로 관리자)
                 order.depart_time = None
                 order.complete_time = None  # 출발시간, 완료시간 모두 초기화
 
-            # 최종 상태 간 변경 시 시간값 변경 없음 (명시적으로 처리할 필요 없음)
-            # elif old_status in ["COMPLETE", "ISSUE", "CANCEL"] and new_status in ["COMPLETE", "ISSUE", "CANCEL"]:
-            #    pass # 시간값 유지
+            # COMPLETE, ISSUE, CANCEL 상태들 간의 변경 시 complete_time 업데이트 (사용자 요청)
+            elif old_status in ["COMPLETE", "ISSUE", "CANCEL"] and new_status in [
+                "COMPLETE",
+                "ISSUE",
+                "CANCEL",
+            ]:
+                logger.info(
+                    f"DEBUG: Updating complete_time for order ID {order.dashboard_id} from {old_status} to {new_status}. Old complete_time: {order.complete_time}, New complete_time will be: {now}"
+                )
+                # 이 블록에 진입 시 old_status != new_status 는 함수 상단에서 보장됨
+                order.complete_time = now
 
             # 공통 업데이트 정보
             order.update_by = user_id

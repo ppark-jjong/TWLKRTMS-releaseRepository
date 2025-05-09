@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // --- 상태 전이 규칙 객체 (백엔드와 일치하도록 관리 - 재정의된 규칙) ---
   const statusTransitions = {
     // 일반 사용자
-    WAITING: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
+    WAITING: ['IN_PROGRESS'],
     IN_PROGRESS: ['COMPLETE', 'ISSUE', 'CANCEL'],
     COMPLETE: ['ISSUE', 'CANCEL'],
     ISSUE: ['COMPLETE', 'CANCEL'],
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
   };
   const adminStatusTransitions = {
     // 관리자
-    WAITING: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
+    WAITING: ['IN_PROGRESS'],
     IN_PROGRESS: ['WAITING', 'COMPLETE', 'ISSUE', 'CANCEL'],
     COMPLETE: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
     ISSUE: ['IN_PROGRESS', 'COMPLETE', 'CANCEL'],
@@ -100,11 +100,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // }
   }
 
-  // 모달 열기 함수
-  function openModal(modalElement) {
-    if (modalElement) {
-      // modalElement.style.display = 'block'; // 이전 방식 제거
-      modalElement.classList.add('modal-active'); // 클래스 추가 방식으로 변경
+  // 모달 열기 함수 (dialog 방식으로 통일)
+  function openDialog(dialogElement) {
+    if (dialogElement) {
+      // dialog 클래스를 사용하여 활성화
+      dialogElement.classList.add('active');
 
       // 선택된 주문 정보 가져오기 (ID, 주문번호, 상태)
       const selectedOrdersInfo = selectedOrderIds.map((id) => {
@@ -126,23 +126,25 @@ document.addEventListener('DOMContentLoaded', function () {
         orderNoDisplay += ` ...외 ${selectedOrdersInfo.length - maxDisplay}건`;
       }
 
-      if (modalElement.id === 'batchStatusUpdateModal') {
+      if (dialogElement.id === 'batchStatusUpdateModal') {
         batchStatusUpdateCountSpan.textContent = selectedOrdersInfo.length;
-        // 주문번호 표시 추가 (모달 내 적절한 위치에 p 태그 추가 필요 - 예: <p id="selectedOrderNosStatus"></p>)
+        // 주문번호 표시
         const orderNosStatusElement = document.getElementById(
           'selectedOrderNosStatus'
-        ); // 이 ID를 가진 요소가 모달에 있어야 함
-        if (orderNosStatusElement)
+        );
+        if (orderNosStatusElement) {
           orderNosStatusElement.textContent = `대상 주문: ${orderNoDisplay}`;
+        }
         loadAndSetStatusOptions(); // 공통 상태 옵션 로드
-      } else if (modalElement.id === 'batchDriverAssignModal') {
+      } else if (dialogElement.id === 'batchDriverAssignModal') {
         batchDriverAssignCountSpan.textContent = selectedOrdersInfo.length;
-        // 주문번호 표시 추가 (모달 내 적절한 위치에 p 태그 추가 필요 - 예: <p id="selectedOrderNosDriver"></p>)
+        // 주문번호 표시
         const orderNosDriverElement = document.getElementById(
           'selectedOrderNosDriver'
-        ); // 이 ID를 가진 요소가 모달에 있어야 함
-        if (orderNosDriverElement)
+        );
+        if (orderNosDriverElement) {
           orderNosDriverElement.textContent = `대상 주문: ${orderNoDisplay}`;
+        }
 
         // 폼 필드 초기화
         batchDriverNameInput.value = '';
@@ -152,11 +154,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // 모달 닫기 함수
-  function closeModal(modalElement) {
-    if (modalElement) {
-      // modalElement.style.display = 'none'; // 이전 방식 제거
-      modalElement.classList.remove('modal-active'); // 클래스 제거 방식으로 변경
+  // 모달 닫기 함수 (dialog 방식으로 통일)
+  function closeDialog(dialogElement) {
+    if (dialogElement) {
+      // dialog 클래스를 사용하여 비활성화
+      dialogElement.classList.remove('active');
     }
   }
 
@@ -174,6 +176,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     try {
       Utils.alerts.showLoading('상태 옵션 로딩 중...');
+
+      // 선택된 행들의 상태 값 확인
+      const selectedRows = [];
+      let allSameStatus = true;
+      let firstStatus = null;
+      
+      selectedOrderIds.forEach((id) => {
+        const row = tableBody.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+          const status = row.getAttribute('data-status');
+          selectedRows.push({
+            id,
+            status,
+            orderNo: row.getAttribute('data-order-no') || 'N/A'
+          });
+          
+          if (firstStatus === null) {
+            firstStatus = status;
+          } else if (status !== firstStatus) {
+            allSameStatus = false;
+          }
+        }
+      });
+      
+      // 상태가 다른 경우 알림 표시 후 종료
+      if (!allSameStatus) {
+        Utils.alerts.hideLoading();
+        Utils.alerts.showWarning('서로 다른 상태의 주문은 함께 상태 변경할 수 없습니다. 같은 상태의 주문만 선택해주세요.');
+        closeDialog(batchStatusUpdateModal);
+        return;
+      }
 
       // 백엔드 API 호출 URL 생성 방식 수정
       const params = new URLSearchParams();
@@ -283,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function () {
         Utils.alerts.showWarning('먼저 주문을 선택해주세요.');
         return;
       }
-      openModal(batchStatusUpdateModal);
+      openDialog(batchStatusUpdateModal);
     });
   }
 
@@ -294,22 +327,29 @@ document.addEventListener('DOMContentLoaded', function () {
         Utils.alerts.showWarning('먼저 주문을 선택해주세요.');
         return;
       }
-      openModal(batchDriverAssignModal);
+      openDialog(batchDriverAssignModal);
     });
   }
 
-  // 모달 닫기 버튼 (모든 모달 공통 처리)
-  document.querySelectorAll('[data-dismiss="modal"]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const modal = button.closest('.modal');
-      closeModal(modal);
+  // 모달 닫기 버튼 (취소 버튼)
+  const cancelStatusBtn = document.getElementById('cancelStatusBtn');
+  if (cancelStatusBtn) {
+    cancelStatusBtn.addEventListener('click', () => {
+      closeDialog(batchStatusUpdateModal);
     });
-  });
+  }
 
-  // 모달 외부 클릭 시 닫기 (선택적)
+  const cancelDriverBtn = document.getElementById('cancelDriverBtn');
+  if (cancelDriverBtn) {
+    cancelDriverBtn.addEventListener('click', () => {
+      closeDialog(batchDriverAssignModal);
+    });
+  }
+
+  // 모달 외부 클릭 시 닫기
   window.addEventListener('click', (event) => {
-    if (event.target.classList.contains('modal')) {
-      closeModal(event.target);
+    if (event.target.classList.contains('dialog')) {
+      closeDialog(event.target);
     }
   });
 
@@ -369,7 +409,7 @@ document.addEventListener('DOMContentLoaded', function () {
           Utils.alerts.showSuccess(message);
         }
 
-        closeModal(batchStatusUpdateModal);
+        closeDialog(batchStatusUpdateModal);
         // 테이블 데이터 새로고침 (dashboard.js의 함수 호출 또는 직접 API 호출)
         if (
           window.fetchAllOrders &&
@@ -461,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function () {
           Utils.alerts.showSuccess(message);
         }
 
-        closeModal(batchDriverAssignModal);
+        closeDialog(batchDriverAssignModal);
         // 테이블 데이터 새로고침
         if (
           window.fetchAllOrders &&

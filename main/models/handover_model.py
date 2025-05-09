@@ -35,9 +35,9 @@ class Handover(Base):
     is_notice = Column(Boolean, default=False)
     # 부서 필드 추가
     department = Column(
-        Enum("CS", "HES", "LENOVO", name="handover_department_enum"),
+        Enum("CS", "HES", "LENOVO", "ALL", name="handover_department_enum"),
         nullable=False,
-        default="CS",
+        default="ALL",
     )
     update_at = Column(DateTime, nullable=False, default=func.now())
     create_time = Column(DateTime, nullable=False, server_default=func.now())

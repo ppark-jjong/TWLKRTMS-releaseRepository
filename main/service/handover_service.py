@@ -105,7 +105,7 @@ def create_handover(
     content: str,
     is_notice: bool,
     writer_id: str,
-    department: str = "CS",
+    department: str = "ALL",
 ) -> Handover:
     """인수인계 생성"""
     logger.info(f"인수인계 생성 요청: 작성자={writer_id}, 제목='{title}'")

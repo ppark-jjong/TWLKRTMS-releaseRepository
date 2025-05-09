@@ -60,7 +60,7 @@
   gap: 0.75rem;
 }
 
-/* 테이블 영역 - 스크롤 적용 */
+/* 테이블 영역 - 스크롤 적용 (대시보드 스타일 적용) */
 .table-scroll-container {
   flex: 1;
   overflow: hidden;
@@ -72,98 +72,116 @@
 .table-container {
   width: 100%;
   overflow-y: auto;
-  max-height: calc(100vh - 260px);
+  overflow-x: scroll; /* 가로 스크롤 강제 설정 */
+  max-height: calc(100vh - 320px); /* 더 보수적인 높이 계산 */
+  height: auto; /* 자동 높이 설정으로 브라우저 간 차이 최소화 */
+  border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
 }
 
-/* 데이터 테이블 */
+/* 데이터 테이블 - 대시보드 스타일 적용 */
 .data-table {
-  width: 100%;
+  width: auto; /* 테이블 너비 자동 조정 */
   border-collapse: collapse;
-  margin-bottom: 1rem;
+  min-width: 100%; /* 최소 너비 유지 */
+  margin-bottom: 0;
 }
 
 .data-table th,
 .data-table td {
-  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  padding: 10px 12px;
+  text-align: center !important; /* 모든 셀 가운데 정렬 강제 */
   vertical-align: middle;
-  border-top: 1px solid #dee2e6;
-  text-align: center !important;
+  white-space: nowrap; /* 줄바꿈 방지 유지 */
+  font-size: calc(0.9rem + 1pt);
+  font-family: var(--font-family);
 }
 
-.data-table thead th {
-  background-color: #f8f9fa;
-  border-bottom: 2px solid #dee2e6;
+.data-table th {
+  background-color: #f0f0f0 !important;
+  cursor: pointer;
   font-weight: 600;
-  color: #495057;
+  color: #424242;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 1;
 }
 
 .data-table tbody tr:hover {
-  background-color: rgba(0, 0, 0, 0.05) !important;
+  background-color: #f0f0f0 !important; /* 덮어쓰기 위해 !important 사용 */
+  cursor: pointer;
 }
 
-/* 정렬 가능한 헤더 */
+/* 정렬 가능한 헤더 - 대시보드 스타일 적용 */
 .sortable-header {
   cursor: pointer;
-  position: relative;
   user-select: none;
+  transition: background-color 0.2s;
+  position: relative;
 }
 
 .sortable-header:hover {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: #e8e8e8;
 }
 
 .sortable-header i {
   margin-left: 5px;
-  color: #6c757d;
-  font-size: 0.85rem;
-  vertical-align: middle;
+  font-size: 14px;
+  color: #888;
+  transition: color 0.2s;
 }
 
-/* 테이블 셀 너비 조정 */
+.sortable-header:hover i {
+  color: var(--primary-color);
+}
+
+.sortable-header i.fa-sort-up,
+.sortable-header i.fa-sort-down {
+  color: var(--primary-color);
+}
+
+/* 테이블 셀 너비 조정 - 고정 너비 사용 (대시보드 스타일 적용) */
 .col-id {
-  width: 5%;
+  width: 60px;
   text-align: center;
 }
 
 .col-title {
-  width: 35%;
+  width: 300px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: left !important;
+  text-align: center; /* 제목도 가운데 정렬 */
 }
 
 .col-type {
-  width: 12%;
+  width: 100px;
   text-align: center;
 }
 
 .col-dept {
-  width: 10%;
+  width: 80px;
   text-align: center;
 }
 
 .col-date {
-  width: 15%;
+  width: 160px;
   text-align: center;
 }
 
 .col-status {
-  width: 8%;
+  width: 80px;
   text-align: center;
 }
 
 .col-writer {
-  width: 10%;
+  width: 120px;
   text-align: center;
 }
 
 .col-updater {
-  width: 10%;
+  width: 120px;
   text-align: center;
 }
 
@@ -197,9 +215,9 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
-/* 빈 테이블 / 로딩 스타일 */
+/* 빈 테이블 / 로딩 스타일 - 대시보드 스타일 적용 */
 .empty-table {
-  padding: 30px !important;
+  padding: 60px 20px !important;
   text-align: center;
 }
 
@@ -208,14 +226,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #6c757d;
-  font-size: 1rem;
+  gap: 1rem;
+  color: var(--text-color-secondary);
 }
 
 .empty-placeholder i {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.6;
+  font-size: 3rem;
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.empty-placeholder p {
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
 }
 
 /* 페이지네이션 */
@@ -386,6 +409,20 @@
 .notice-label i {
   color: #d72519;
   margin-right: 8px;
+}
+
+/* 크로스 브라우저 호환성 개선 - 대시보드 스타일 적용 */
+@-moz-document url-prefix() {
+  /* Firefox 전용 스타일 */
+  .filter-select,
+  .date-input {
+    height: 36px; /* Firefox에서 높이 일관성 유지 */
+  }
+
+  .data-table th,
+  .data-table td {
+    font-size: 0.9rem; /* Firefox에서는 폰트 크기 약간 줄임 */
+  }
 }
 
 /* 응답형 조정 */

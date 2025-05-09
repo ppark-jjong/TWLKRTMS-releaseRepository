@@ -138,7 +138,7 @@ endblock %} {% block page_css %}
           </div>
           <div class="meta-item">
             <span class="meta-label">부서:</span>
-            <span class="meta-value">{{ handover.department }}</span>
+            <span class="meta-value">{{ '전체' if handover.department == 'ALL' else handover.department }}</span>
           </div>
         </div>
       </div>
