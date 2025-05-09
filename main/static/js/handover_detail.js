@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // 기본 제출 동작 진행 -> 서버에서 처리
   });
 
-  // 페이지 파라미터로 전달된 성공/오류 메시지 처리
-  Utils.ui.showPageMessages();
+  // base.js에서 이미 URL 파라미터를 처리하므로 여기서는 호출하지 않음
+  // 이 줄을 제거하거나 주석 처리하여 중복 알림 방지
+  // Utils.ui.showPageMessages();
 });

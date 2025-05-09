@@ -58,9 +58,6 @@ class Settings:
         )
         self.SESSION_EXPIRE_HOURS = int(os.getenv("SESSION_EXPIRE_HOURS", "24"))
 
-        # GAE 환경 확인 - 항상 standard로 설정
-        self.GAE_ENV = "standard"
-
         # 설정 로드 로그
         logger.info("=== GAE 프로덕션 애플리케이션 설정 로드 ===")
         logger.info(f"DEBUG: {self.DEBUG}")
@@ -72,7 +69,6 @@ class Settings:
         logger.info(
             f"MYSQL_PASSWORD 설정 여부: {'YES' if self.MYSQL_PASSWORD else 'NO'}"
         )
-        logger.info(f"GAE_ENV: {self.GAE_ENV}")
         logger.info("=============================")
 
     # DB 연결 문자열 - GAE 프로덕션 환경 전용

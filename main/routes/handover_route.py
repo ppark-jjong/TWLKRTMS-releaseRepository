@@ -266,7 +266,7 @@ async def get_handover_list_api(
         description="null: 전체, True: 공지, False: 인수인계",
     ),
     department: Optional[str] = Query(
-        None, description="부서 필터링 (CS, HES, LENOVO)"
+        None, description="부서 필터링 (CS, HES, LENOVO, ALL)"
     ),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
@@ -306,7 +306,7 @@ async def create_handover_api(
       - title(str): 제목
       - content(str): 내용
       - is_notice(str): 공지사항 여부 (문자열 "true"/"false")
-      - department(str): 부서 (CS/HES/LENOVO)
+      - department(str): 부서 (CS/HES/LENOVO/ALL)
     """
     user_id = current_user.get("user_id")
     user_role = current_user.get("user_role")
@@ -323,7 +323,7 @@ async def create_handover_api(
             )
 
         # 부서 유효성 검증
-        if department not in ["CS", "HES", "LENOVO"]:
+        if department not in ["CS", "HES", "LENOVO", "ALL"]:
             logger.warning(f"유효하지 않은 부서: {department}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -390,7 +390,7 @@ async def update_handover_api(
       - title(str): 제목
       - content(str): 내용
       - is_notice(str): 공지사항 여부 (문자열 "true"/"false")
-      - department(str): 부서 (CS/HES/LENOVO)
+      - department(str): 부서 (CS/HES/LENOVO/ALL)
     """
     user_id = current_user.get("user_id")
     user_role = current_user.get("user_role")
@@ -454,7 +454,7 @@ async def update_handover_api(
             )
 
         # 부서 유효성 검증
-        if department not in ["CS", "HES", "LENOVO"]:
+        if department not in ["CS", "HES", "LENOVO", "ALL"]:
             logger.warning(f"유효하지 않은 부서: {department}")
             error_message = quote("유효하지 않은 부서입니다.")
             return RedirectResponse(

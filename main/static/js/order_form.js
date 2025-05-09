@@ -21,9 +21,6 @@ document.addEventListener('DOMContentLoaded', function () {
       // 폼 요소 참조 초기화
       this.initFormRefs();
 
-      // 이벤트 리스너 설정
-      this.initEventListeners();
-
       // 우편번호 입력 처리 설정
       this.initPostalCodeHandler();
 
@@ -39,9 +36,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // 생성 모드일 경우
         this.setDefaultDateTime();
       }
-
-      // 상태 드롭다운 설정 (init 마지막에 호출하는 것으로 변경 - 생성/수정 모두 적용 가능성 고려)
-      // this.setupStatusDropdown();
     },
 
     /**
@@ -96,28 +90,6 @@ document.addEventListener('DOMContentLoaded', function () {
     },
 
     /**
-     * 이벤트 리스너 설정
-     */
-    initEventListeners() {
-      // 폼 제출 이벤트 리스너 제거!
-      // if (this.form) {
-      //   this.form.addEventListener('submit', (e) => {
-      //     e.preventDefault();
-      //     this.submitForm();
-      //   });
-      // }
-
-      // 취소 버튼 이벤트 리스너는 유지
-      const cancelBtn = document.querySelector('.btn.secondary-btn');
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.cancelForm();
-        });
-      }
-    },
-
-    /**
      * 우편번호 입력 처리 설정
      */
     initPostalCodeHandler() {
@@ -156,144 +128,6 @@ document.addEventListener('DOMContentLoaded', function () {
     },
 
     /**
-     * 주문 데이터 로드 (수정 모드)
-     */
-    async loadOrderData() {
-      if (!this.orderId && this.mode === 'edit') {
-        console.error('수정 모드이지만 주문 ID가 없습니다.');
-        Utils.message.error('주문 정보를 불러올 수 없습니다: 주문 ID 없음');
-        return;
-      }
-      if (!this.orderId) return; // 생성 모드이거나 ID 없으면 로드 안함
-
-      try {
-        Utils.http.showLoading();
-        // API 엔드포인트는 /api/orders/{id}/data 와 같이 실제 데이터만 반환하는 곳을 가정합니다.
-        // 또는, 템플릿에서 이미 모든 데이터를 전달받았다면 이 함수는 필요 없을 수 있습니다.
-        const orderData = await Utils.http.get(
-          `/api/orders/${this.orderId}/data`
-        );
-
-        // 명시적 락 확인 로직 제거: editable 플래그에 따른 폼 비활성화 및 경고 메시지 제거
-        // if (!orderData.editable) {
-        //   Utils.message.warning(
-        //     `이 주문은 현재 다른 사용자(${orderData.update_by || '알 수 없음'})가 수정 중입니다.`
-        //   );
-        //   this.disableForm();
-        //   // return; // 폼 비활성화 후 더 이상 진행하지 않도록 할 수 있음
-        // }
-
-        // 폼 필드 설정
-        this.fillFormData(orderData); // API 응답이 order 객체 자체라고 가정
-      } catch (error) {
-        Utils.message.error(
-          error.message || '주문 데이터를 불러오는 중 오류가 발생했습니다.'
-        );
-        // 필요시 목록 페이지로 리다이렉트
-        // setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
-      } finally {
-        Utils.http.hideLoading();
-      }
-    },
-
-    /**
-     * 폼 데이터 채우기
-     * @param {Object} data - 주문 데이터
-     */
-    fillFormData(data) {
-      // 숨겨진 필드 설정
-      if (this.dashboardIdField) {
-        this.dashboardIdField.value = data.dashboardId;
-      }
-
-      // 입력 필드 설정
-      if (this.els.orderNo) this.els.orderNo.value = data.orderNo || '';
-      if (this.els.type) this.els.type.value = data.type || 'DELIVERY';
-      if (this.els.department)
-        this.els.department.value = data.department || '';
-      if (this.els.warehouse) this.els.warehouse.value = data.warehouse || '';
-      if (this.els.sla) this.els.sla.value = data.sla || '';
-
-      // 날짜 필드 처리
-      if (this.els.eta && data.eta) {
-        // 서버 날짜 형식 (YYYY-MM-DD HH:MM)을 input[type="datetime-local"] 형식으로 변환
-        const etaDate = new Date(data.eta);
-        if (!isNaN(etaDate.getTime())) {
-          // YYYY-MM-DDTHH:MM 형식으로 변환
-          const localDate = etaDate.toISOString().substring(0, 16);
-          this.els.eta.value = localDate;
-        }
-      }
-
-      // 기타 필드
-      if (this.els.postalCode)
-        this.els.postalCode.value = data.postalCode || '';
-      if (this.els.address) this.els.address.value = data.address || '';
-      if (this.els.customer) this.els.customer.value = data.customer || '';
-      if (this.els.contact) this.els.contact.value = data.contact || '';
-      if (this.els.status) this.els.status.value = data.status || 'WAITING';
-      if (this.els.driverName)
-        this.els.driverName.value = data.driverName || '';
-      if (this.els.driverContact)
-        this.els.driverContact.value = data.driverContact || '';
-      if (this.els.remark) this.els.remark.value = data.remark || '';
-    },
-
-    /**
-     * 폼 비활성화 (수정 불가능한 경우)
-     */
-    disableForm() {
-      // 모든 입력 필드 비활성화
-      const inputs = this.form.querySelectorAll('input, select, textarea');
-      inputs.forEach((input) => {
-        input.disabled = true;
-      });
-
-      // 제출 버튼 비활성화
-      const submitBtn = this.form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-      }
-    },
-
-    /**
-     * 폼 데이터 검증
-     * @returns {boolean} 유효성 여부
-     */
-    validateForm() {
-      // HTML5 내장 유효성 검사 사용
-      if (!this.form.checkValidity()) {
-        // 첫 번째 오류 필드에 포커스
-        const invalidField = this.form.querySelector(':invalid');
-        if (invalidField) {
-          invalidField.focus();
-
-          // 오류 메시지 표시
-          if (Utils && Utils.alerts) {
-            Utils.alerts.showError('필수 입력 항목을 확인해주세요.');
-          } else {
-            alert('필수 입력 항목을 확인해주세요.');
-          }
-        }
-        return false;
-      }
-
-      // 우편번호 검증
-      const postalCode = this.els.postalCode.value.trim();
-      if (postalCode.length < 5 || !/^\d{5}$/.test(postalCode)) {
-        this.els.postalCode.focus();
-        if (Utils && Utils.alerts) {
-          Utils.alerts.showError('우편번호는 5자리 숫자로 입력해주세요.');
-        } else {
-          alert('우편번호는 5자리 숫자로 입력해주세요.');
-        }
-        return false;
-      }
-
-      return true;
-    },
-
-    /**
      * 폼 데이터 수집
      * @returns {Object} 수집된 데이터
      */
@@ -307,24 +141,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       return data;
-    },
-
-    /**
-     * 폼 제출 처리 함수 제거!
-     */
-    // async submitForm() { ... } // 함수 정의 자체를 제거
-
-    /**
-     * 폼 취소 처리
-     */
-    cancelForm() {
-      if (confirm('작성 중인 내용이 저장되지 않습니다. 취소하시겠습니까?')) {
-        if (this.mode === 'edit') {
-          window.location.href = `/orders/${this.orderId}`;
-        } else {
-          window.location.href = '/dashboard';
-        }
-      }
     },
 
     // 사용자 정보 로드 함수 추가
@@ -362,14 +178,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // 초기 상태값이 있을 때만 업데이트
         this.updateStatusOptions(initialStatus, isAdmin);
       }
-      // 생성 모드이고, 초기 상태가 WAITING이면 (기본값), 해당 옵션만 보여주거나, 관리자/사용자에 따라 다르게 설정
-      // 또는, 주문 로드 후 현재 상태를 기준으로 항상 updateStatusOptions 호출하도록 수정
     },
 
     // --- 상태 전이 규칙 (백엔드와 일치 - 재정의된 규칙) ---
     statusTransitions: {
       // 일반 사용자
-      WAITING: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
+      WAITING: ['IN_PROGRESS'],
       IN_PROGRESS: ['COMPLETE', 'ISSUE', 'CANCEL'],
       COMPLETE: ['ISSUE', 'CANCEL'],
       ISSUE: ['COMPLETE', 'CANCEL'],
@@ -377,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     adminStatusTransitions: {
       // 관리자
-      WAITING: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
+      WAITING: ['IN_PROGRESS'],
       IN_PROGRESS: ['WAITING', 'COMPLETE', 'ISSUE', 'CANCEL'],
       COMPLETE: ['IN_PROGRESS', 'ISSUE', 'CANCEL'],
       ISSUE: ['IN_PROGRESS', 'COMPLETE', 'CANCEL'],
@@ -427,18 +241,6 @@ document.addEventListener('DOMContentLoaded', function () {
           statusSelect.add(option);
         }
       });
-
-      // 만약 uniqueDisplayOptions의 길이가 1이고 (즉, 현재 상태에서 변경 가능한 상태가 없음)
-      // 현재 상태가 COMPLETE, ISSUE, CANCEL 중 하나라면 select 자체를 disabled 처리 (선택)
-      if (
-        uniqueDisplayOptions.length === 1 &&
-        ['COMPLETE', 'ISSUE', 'CANCEL'].includes(currentStatus) &&
-        !isAdmin
-      ) {
-        // statusSelect.disabled = true; // 일반 사용자가 최종 상태에 도달하면 변경 불가함을 명시
-      } else {
-        // statusSelect.disabled = false;
-      }
     },
     // --- 상태 드롭다운 로직 끝 ---
   };
@@ -472,6 +274,6 @@ document.addEventListener('DOMContentLoaded', function () {
     );
   }
 
-  // 글로벌 스코프에 노출
+  // 전역 스코프에 노출
   window.OrderForm = OrderForm;
 });

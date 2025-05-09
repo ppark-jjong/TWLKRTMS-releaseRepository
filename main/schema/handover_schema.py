@@ -13,7 +13,7 @@ class HandoverBase(BaseModel):
     title: str = Field(..., description="제목")
     content: str = Field(..., description="내용")
     is_notice: bool = Field(False, description="공지사항 여부")
-    department: str = Field("CS", description="부서(CS/HES/LENOVO)")
+    department: str = Field("ALL", description="부서(CS/HES/LENOVO/ALL)")
 
     class Config:
         populate_by_name = True
@@ -33,7 +33,7 @@ class HandoverUpdate(HandoverBase):
     title: Optional[str] = Field(None, description="제목")
     content: Optional[str] = Field(None, description="내용")
     is_notice: Optional[bool] = Field(None, description="공지사항 여부")
-    department: Optional[str] = Field(None, description="부서(CS/HES/LENOVO)")
+    department: Optional[str] = Field(None, description="부서(CS/HES/LENOVO/ALL)")
     status: Optional[str] = Field(None, description="상태(OPEN/CLOSE)")
 
     class Config:

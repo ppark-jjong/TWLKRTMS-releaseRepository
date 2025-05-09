@@ -229,6 +229,7 @@
               class="select-field"
               required
             >
+              <option value="ALL" {% if handover and handover.department == 'ALL' %}selected{% endif %}>전체</option>
               <option value="CS" {% if handover and handover.department == 'CS' %}selected{% endif %}>CS</option>
               <option value="HES" {% if handover and handover.department == 'HES' %}selected{% endif %}>HES</option>
               <option value="LENOVO" {% if handover and handover.department == 'LENOVO' %}selected{% endif %}>LENOVO</option>

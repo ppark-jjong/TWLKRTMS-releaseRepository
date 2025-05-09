@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let totalPages = 1;
   let initialLoadComplete = false;
   let currentTypeFilter = 'all'; // 유형 필터 변수
-  let currentDeptFilter = 'all'; // 부서 필터 변수
+  let currentDeptFilter = 'all'; // 부서 필터 변수 (all로 다시 변경)
   let currentStatusFilter = 'all'; // 상태 필터 변수 추가
   let sortField = 'update_at'; // 정렬 필드 (기본값: update_at)
   let sortDirection = 'desc'; // 정렬 방향 (기본값: 내림차순)
@@ -156,8 +156,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const deptMatch =
         currentDeptFilter === 'all'
           ? true
-          : (item.department || '').toLowerCase() ===
-            currentDeptFilter.toLowerCase();
+          : (item.department || '').toUpperCase() === 
+            currentDeptFilter.toUpperCase();
 
       // 상태 필터링 추가
       const statusMatch =
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const createAt = formatDateTime(item.create_time);
       const updateAt = formatDateTime(item.update_at);
       const creatorName = item.creator_name || '-';
-      const department = item.department || 'CS'; // 기본값 CS
+      const department = item.department === 'ALL' ? '전체' : item.department || 'CS';
       const statusLabel = statusLabels[item.status] || item.status;
 
       // 공지사항 여부에 따라 스타일 다르게 적용

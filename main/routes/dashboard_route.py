@@ -76,14 +76,14 @@ page_router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # --- 상태 전이 규칙 (JS와 동일하게 유지 - 재정의된 규칙) ---
 status_transitions = {  # 일반 사용자
-    "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+    "WAITING": ["IN_PROGRESS"],
     "IN_PROGRESS": ["COMPLETE", "ISSUE", "CANCEL"],
     "COMPLETE": ["ISSUE", "CANCEL"],
     "ISSUE": ["COMPLETE", "CANCEL"],
     "CANCEL": ["COMPLETE", "ISSUE"],
 }
 admin_status_transitions = {  # 관리자
-    "WAITING": ["IN_PROGRESS", "ISSUE", "CANCEL"],
+    "WAITING": ["IN_PROGRESS"],
     "IN_PROGRESS": ["WAITING", "COMPLETE", "ISSUE", "CANCEL"],
     "COMPLETE": ["IN_PROGRESS", "ISSUE", "CANCEL"],
     "ISSUE": ["IN_PROGRESS", "COMPLETE", "CANCEL"],
@@ -756,6 +756,9 @@ async def order_edit_page(
         # ETA ISO 8601 형식 변환 (YYYY-MM-DDTHH:MM)
         if dashboard.eta:
             dashboard_data["eta"] = dashboard.eta.isoformat()
+
+        # 디버깅 메시지 추가
+        logger.info(f"주문 수정 페이지 로드 성공: id={dashboard_id}")
 
         # 템플릿 컨텍스트 설정
         context = {

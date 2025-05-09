@@ -27,66 +27,7 @@
   #batchActions button {
     padding: 0.4rem 0.8rem;
   }
-  /* 모달 기본 스타일 */
-  .modal {
-    display: none; /* 기본 숨김 */
-    opacity: 0; /* 기본 투명 */
-    transition: opacity 0.3s ease-in-out; /* 부드러운 효과 */
-    position: fixed;
-    z-index: 1050; /* 다른 요소 위에 표시 */
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.4);
-  }
-  .modal.modal-active {
-    display: block; /* 보이도록 block 처리 */
-    opacity: 1; /* 완전 불투명 */
-  }
-  .modal-dialog {
-    position: relative;
-    margin: 5% auto; /* 위에서 5% 아래, 중앙 정렬 */
-    padding: 20px;
-    width: 80%;
-    max-width: 500px; /* 최대 너비 */
-    background-color: #fff;
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-lg);
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-  }
-  .modal-title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-  }
-  .modal-close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    font-weight: bold;
-    cursor: pointer;
-    color: #6c757d;
-  }
-  .modal-body .form-group {
-    margin-bottom: 1rem;
-  }
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    border-top: 1px solid #dee2e6;
-    padding-top: 15px;
-    margin-top: 20px;
-  }
+  /* 인라인 모달 스타일 제거 - dashboard_additions.css로 통합 */
   /* 행갯수 선택 드롭다운 너비 조정 */
   #rowsPerPageSelect {
     width: 80px; /* 원하는 너비로 조절 */
@@ -220,10 +161,10 @@
           {% endif %}
           <!-- 일괄 작업 버튼 (오른쪽으로 이동, 항상 표시, 초기는 비활성화) -->
           <button class="btn secondary-btn" id="batchStatusUpdateBtn" disabled>
-            <i class="fa-solid fa-tags"></i> 상태 일괄 변경
+            <i class="fa-solid fa-tags"></i> 상태 변경
           </button>
           <button class="btn secondary-btn" id="batchDriverAssignBtn" disabled>
-            <i class="fa-solid fa-user-plus"></i> 기사 일괄 배정
+            <i class="fa-solid fa-user-plus"></i> 기사 배정
           </button>
           <!-- 신규 등록 -->
           <a href="/orders/new" class="btn primary-btn">
@@ -305,111 +246,98 @@
     </div>
   </div>
 
-  <!-- === 일괄 작업 모달창 === -->
+  <!-- === 일괄 작업 모달창 (대화상자 형식으로 변경) === -->
 
-  <!-- 1. 상태 일괄 변경 모달 -->
-  <div id="batchStatusUpdateModal" class="modal">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title">상태 일괄 변경</h3>
-          <button type="button" class="modal-close-btn" data-dismiss="modal">
-            &times;
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            <strong id="batchStatusUpdateCount">0</strong>개의 주문 상태를
-            변경합니다.
-          </p>
-          <!-- 주문번호 표시 영역 추가 -->
-          <p
-            id="selectedOrderNosStatus"
-            style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
-          ></p>
-          <div class="form-group">
-            <label for="batchNewStatus">변경할 상태</label>
-            <select id="batchNewStatus" class="form-control">
-              <!-- JS로 옵션 동적 생성 -->
-            </select>
-            <small class="text-muted"
-              >선택된 모든 주문에 적용 가능한 상태만 표시됩니다.</small
-            >
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn secondary-btn" data-dismiss="modal">
-            취소
-          </button>
-          <button
-            type="button"
-            class="btn primary-btn"
-            id="confirmBatchStatusUpdateBtn"
-          >
-            변경 적용
-          </button>
-        </div>
+  <!-- 1. 상태 일괄 변경 모달 (대화상자로 변경) -->
+  <div id="batchStatusUpdateModal" class="dialog">
+    <div class="dialog-content">
+      <h3>상태 일괄 변경</h3>
+      <p>
+        <strong id="batchStatusUpdateCount">0</strong>개의 주문 상태를
+        변경합니다.
+      </p>
+      <!-- 주문번호 표시 영역 -->
+      <p
+        id="selectedOrderNosStatus"
+        style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
+      ></p>
+      <div class="form-group">
+        <label for="batchNewStatus">변경할 상태</label>
+        <select id="batchNewStatus" class="form-control">
+          <!-- JS로 옵션 동적 생성 -->
+        </select>
+        <small class="text-muted"
+          >선택된 모든 주문에 적용 가능한 상태만 표시됩니다.</small
+        >
+      </div>
+      <div class="dialog-actions">
+        <button
+          type="button"
+          class="btn secondary-btn"
+          id="cancelStatusBtn"
+          data-dismiss="modal"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          class="btn primary-btn"
+          id="confirmBatchStatusUpdateBtn"
+        >
+          변경 적용
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- 2. 기사 일괄 배정 모달 -->
-  <div id="batchDriverAssignModal" class="modal">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title">기사 일괄 배정</h3>
-          <button type="button" class="modal-close-btn" data-dismiss="modal">
-            &times;
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            <strong id="batchDriverAssignCount">0</strong>개의 주문에 기사를
-            배정합니다.
-          </p>
-          <!-- 주문번호 표시 영역 추가 -->
-          <p
-            id="selectedOrderNosDriver"
-            style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
-          ></p>
-          <div class="form-group">
-            <label for="batchDriverName"
-              >기사명 <span class="required">*</span></label
-            >
-            <input
-              type="text"
-              id="batchDriverName"
-              class="form-control"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="batchDriverContact">기사 연락처</label>
-            <input type="text" id="batchDriverContact" class="form-control" />
-          </div>
-          <div class="form-group">
-            <label for="batchDeliveryCompany">배송사</label>
-            <select id="batchDeliveryCompany" class="form-control">
-              <option value="">선택 안함</option>
-              <option value="로얄">로얄</option>
-              <option value="서경">서경</option>
-              <option value="택화">택화</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn secondary-btn" data-dismiss="modal">
-            취소
-          </button>
-          <button
-            type="button"
-            class="btn primary-btn"
-            id="confirmBatchDriverAssignBtn"
-          >
-            배정 적용
-          </button>
-        </div>
+  <!-- 2. 기사 일괄 배정 모달 (대화상자로 변경) -->
+  <div id="batchDriverAssignModal" class="dialog">
+    <div class="dialog-content">
+      <h3>기사 일괄 배정</h3>
+      <p>
+        <strong id="batchDriverAssignCount">0</strong>개의 주문에 기사를
+        배정합니다.
+      </p>
+      <!-- 주문번호 표시 영역 -->
+      <p
+        id="selectedOrderNosDriver"
+        style="font-size: 0.9em; color: #6c757d; margin-bottom: 1rem"
+      ></p>
+      <div class="form-group">
+        <label for="batchDriverName"
+          >기사명 <span class="required">*</span></label
+        >
+        <input type="text" id="batchDriverName" class="form-control" required />
+      </div>
+      <div class="form-group">
+        <label for="batchDriverContact">기사 연락처</label>
+        <input type="text" id="batchDriverContact" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label for="batchDeliveryCompany">배송사</label>
+        <select id="batchDeliveryCompany" class="form-control">
+          <option value="">선택 안함</option>
+          <option value="로얄">로얄</option>
+          <option value="서경">서경</option>
+          <option value="택화">택화</option>
+        </select>
+      </div>
+      <div class="dialog-actions">
+        <button
+          type="button"
+          class="btn secondary-btn"
+          id="cancelDriverBtn"
+          data-dismiss="modal"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          class="btn primary-btn"
+          id="confirmBatchDriverAssignBtn"
+        >
+          배정 적용
+        </button>
       </div>
     </div>
   </div>

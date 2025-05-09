@@ -278,13 +278,28 @@ document.addEventListener('DOMContentLoaded', function () {
     // 모든 컬럼에 대해 정렬 적용 (일반화된 로직)
     if (sortField && sortDirection) {
       filteredOrders.sort((a, b) => {
-        const dateA = a.eta ? new Date(a.eta) : new Date(0);
-        const dateB = b.eta ? new Date(b.eta) : new Date(0);
-
-        if (sortDirection === 'asc') {
-          return dateA - dateB;
-        } else {
-          return dateB - dateA;
+        // 다양한 날짜 필드에 대한 정렬 처리
+        if (sortField === 'create_time' || sortField === 'eta' || 
+            sortField === 'depart_time' || sortField === 'complete_time') {
+          const dateA = a[sortField] ? new Date(a[sortField]) : new Date(0);
+          const dateB = b[sortField] ? new Date(b[sortField]) : new Date(0);
+          
+          if (sortDirection === 'asc') {
+            return dateA - dateB;
+          } else {
+            return dateB - dateA;
+          }
+        } 
+        // 다른 타입의 필드를 위한 정렬 로직 (필요한 경우)
+        else {
+          const valueA = a[sortField] || '';
+          const valueB = b[sortField] || '';
+          
+          if (sortDirection === 'asc') {
+            return valueA.localeCompare(valueB);
+          } else {
+            return valueB.localeCompare(valueA);
+          }
         }
       });
     }
@@ -432,7 +447,27 @@ document.addEventListener('DOMContentLoaded', function () {
     dashboardTableHead.innerHTML = headerHTML;
 
     // 전체 선택 체크박스 이벤트 리스너는 batch_actions.js 에서 처리
-    // ... (기존 정렬 헤더 이벤트 리스너)
+    
+    // 정렬 가능한 헤더에 클릭 이벤트 추가
+    const sortableHeaders = dashboardTableHead.querySelectorAll('.sortable-header');
+    sortableHeaders.forEach(header => {
+      header.addEventListener('click', function() {
+        const field = this.getAttribute('data-sort');
+        // 같은 필드를 다시 클릭하면 정렬 방향 전환, 아니면 내림차순 기본값
+        if (field === sortField) {
+          sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortField = field;
+          sortDirection = 'desc'; // 새 필드 클릭 시 내림차순 기본값
+        }
+        
+        // 헤더 업데이트 (정렬 아이콘 변경)
+        renderTableHeader();
+        
+        // 정렬 적용 및 테이블 다시 렌더링
+        applyFiltersAndRender();
+      });
+    });
   }
 
   // 빈 결과 행 HTML 생성
@@ -697,7 +732,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 새로고침 버튼
     refreshBtn?.addEventListener('click', () => {
-      fetchAllOrders(startDateInput.value, endDateInput.value);
+      fetchAllOrders(startDateInput.value, endDateInput.value)
+        .then(() => {
+          hideLoading();
+          Utils.alerts?.showSuccess('데이터를 새로고침했습니다.');
+        })
+        .catch((err) => {
+          // fetchAllOrders 내부에서 오류 처리됨
+          hideLoading();
+        });
     });
   }
 

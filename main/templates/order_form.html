@@ -10,7 +10,7 @@
       <span>{% if is_edit %}주문 정보 수정{% else %}신규 배송 등록{% endif %}</span>
     </h1>
     <div class="header-actions">
-      <a href="{% if is_edit %}/orders/{{ order.dashboard_id }}{% else %}/dashboard{% endif %}" class="btn secondary-btn">
+      <a href="{% if is_edit %}/orders/{{ order.dashboard_id }}{% else %}/dashboard{% endif %}" class="btn secondary-btn" id="cancelBtn">
         <i class="fa-solid fa-times"></i>
         취소
       </a>
@@ -332,17 +332,50 @@
         });
     }
 
-    // 취소 버튼 로직
-    const dashboardIdForCancel = "{{ order.dashboard_id|default('') }}";
-    if (dashboardIdForCancel) { 
-      const cancelBtn = document.querySelector('a.secondary-btn[href*="/orders/"]'); 
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', function(e) {
-          if (!confirm('변경사항이 저장되지 않았습니다. 정말 취소하시겠습니까?')) {
-             e.preventDefault(); // 취소 시에만 페이지 이동 막기
+    // 취소 버튼 - 브라우저의 beforeunload 이벤트를 사용하지 않고 직접 처리
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+      // 폼이 수정되었는지 추적
+      let formModified = false;
+      
+      // 폼 필드 변경 감지
+      if (form) {
+        const formInputs = form.querySelectorAll('input, select, textarea');
+        formInputs.forEach(input => {
+          input.addEventListener('change', function() {
+            formModified = true;
+          });
+          // 텍스트 필드에 대한 추가 이벤트
+          if (input.tagName === 'INPUT' && 
+              (input.type === 'text' || input.type === 'datetime-local')) {
+            input.addEventListener('input', function() {
+              formModified = true;
+            });
+          }
+          // 텍스트 영역에 대한 추가 이벤트
+          if (input.tagName === 'TEXTAREA') {
+            input.addEventListener('input', function() {
+              formModified = true;
+            });
           }
         });
       }
+      
+      // 취소 버튼에 이벤트 핸들러 추가
+      cancelBtn.addEventListener('click', function(e) {
+        // 폼이 수정되었을 때만 확인 메시지 표시
+        if (formModified) {
+          e.preventDefault();
+          if (confirm('변경사항이 저장되지 않았습니다. 정말 취소하시겠습니까?')) {
+            // 확인 시 페이지 이동
+            window.location.href = this.getAttribute('href');
+          }
+        }
+        // 변경되지 않았으면 기본 링크 동작 (페이지 이동)
+      });
+      
+      // beforeunload 이벤트 핸들러 제거 (브라우저 기본 알림 방지)
+      window.onbeforeunload = null;
     }
   });
 </script>
