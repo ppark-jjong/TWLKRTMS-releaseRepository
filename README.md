@@ -7,9 +7,10 @@
 ### Demo Video
 
 <div align="center">
-  <video src="demoVideo.mp4" width="640" height="360" controls>
-    데모 비디오를 재생할 수 없는 경우, <a href="https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4">여기</a>를 클릭하여 다운로드하세요.
-  </video>
+  
+  **[▶️ 데모 비디오 보기 (13.5MB)](https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4)**
+  
+  <i>GitHub에서는 동영상을 직접 재생할 수 없어 다운로드 후 확인이 필요합니다</i>
 </div>
 
 
