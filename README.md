@@ -4,10 +4,20 @@
 > **Production URL:** https://twlkr-459107.du.r.appspot.com<br>
 > *1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.* <br>
 > *2. For account access, please contact Sungyong Kim at TWLKR.* <br>
-> *3. Demo Video*
->
-> <video src="demoVideo.mp4" controls="controls" style="max-width: 730px;">
-> </video>
+### Demo Video 
+
+<!-- 방법 1: 직접 링크 -->
+https://github.com/ppark-jjong/teckwah-test/blob/main/demoVideo.mp4
+
+<!-- 방법 2: HTML 비디오 태그 -->
+<video src="https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4" controls="controls" width="640" height="360">
+</video>
+
+<!-- 방법 3: Markdown 이미지 링크 -->
+[![데모 비디오](https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4)](https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4)
+
+<!-- 방법 4: GitHub 상대 경로 -->
+https://github.com/ppark-jjong/teckwah-test/assets/demoVideo.mp4
 
 
 ## 1. Project Summary
