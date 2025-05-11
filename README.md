@@ -6,12 +6,7 @@
 > *2. For account access, please contact Sungyong Kim at TWLKR.* <br>
 ### Demo Video
 
-<div align="center">
-  
-  **[▶️ 데모 비디오 보기 (13.5MB)](https://github.com/ppark-jjong/teckwah-test/raw/main/demoVideo.mp4)**
-  
-  <i>GitHub에서는 동영상을 직접 재생할 수 없어 다운로드 후 확인이 필요합니다</i>
-</div>
+![데모 비디오](demoVideo.mp4)
 
 
 ## 1. Project Summary
