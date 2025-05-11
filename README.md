@@ -6,7 +6,9 @@
 > *2. For account access, please contact Sungyong Kim at TWLKR.* <br>
 ### Demo Video
 
-[![데모 비디오](https://img.youtube.com/vi/4RFC88mS1Wk/0.jpg)](https://youtu.be/4RFC88mS1Wk)
+[![데모 비디오](https://i.ytimg.com/vi/4RFC88mS1Wk/maxresdefault.jpg)](https://youtu.be/4RFC88mS1Wk)
+
+[▶️](https://youtu.be/4RFC88mS1Wk)
 
 
 ## 1. Project Summary
