@@ -11,7 +11,7 @@ __pycache__/
 # IDE 설정
 .idea/
 .vscode/
-
+.png
 # 개발/테스트 파일
 development.yaml
 run_local.py
