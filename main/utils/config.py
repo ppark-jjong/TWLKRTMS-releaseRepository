@@ -38,13 +38,11 @@ class Settings:
         self.LOG_LEVEL = "INFO"  # 프로덕션 환경에서 기본 로그 레벨
 
         # CORS 설정
-        origins_env = os.getenv(
-            "ALLOWED_ORIGINS", "https://prefab-faculty-452705-t2.du.r.appspot.com"
-        )
+        origins_env = os.getenv("ALLOWED_ORIGINS", "https://twlkr-tms.du.r.appspot.com")
         self.ALLOWED_ORIGINS = parse_comma_separated_list(origins_env)
 
         # 데이터베이스 설정
-        self.MYSQL_HOST = os.getenv("MYSQL_HOST", "10.22.176.3")
+        self.MYSQL_HOST = os.getenv("MYSQL_HOST", "10.113.80.3")
         self.MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
         self.MYSQL_USER = os.getenv("MYSQL_USER", "teckwahkr-user")
         self.MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "teckwah0206")
