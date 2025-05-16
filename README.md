@@ -1,7 +1,7 @@
 
 # <img src="main/static/images/favicon.ico" alt="TWLKR Logo" width="20" style="vertical-align: middle;"/> TWLKR TMS System
 
-> **Production URL:** https://twlkr-459107.du.r.appspot.com<br>
+> **Production URL:** https://twlkr-tms.du.r.appspot.com/dashboard <br>
 > *1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.* <br>
 > *2. For account access, please contact Sungyong Kim at TWLKR.* <br>
 ### Demo Video
