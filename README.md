@@ -4,8 +4,6 @@
 > **Production URL:** https://twlkr-tms.du.r.appspot.com/dashboard <br>
 > *1. This system is designed for desktop use only, with all interfaces optimized for Korean language. The application uses KST (UTC+9) for all time-related operations.* <br>
 > *2. For account access, please contact Sungyong Kim at TWLKR.* <br>
-### Demo Video
-[![▶️](screenshot.png)](https://youtu.be/4RFC88mS1Wk)
 
 ## 1. Project Summary
 
