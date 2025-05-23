@@ -89,6 +89,4 @@ Administrators have all regular user capabilities plus:
   <img src="main/static/images/logo.png" alt="TWLKR Logo" width="350"/>
 </div>
 
-> *Project Planning & Oversight: Sungyoung Kim, TWLKR Operation Manager*
-> 
 > *Developed by: Jonghyeok Park, TWLKR Operation Team*  
